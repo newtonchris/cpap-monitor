@@ -1,0 +1,86 @@
+# cpap-monitor configuration — EXAMPLE / TEMPLATE.
+#
+# The real config lives OUTSIDE the repo at /etc/cpap-monitor/config.toml
+# (mode 0640) because it holds secrets. NEVER commit a filled-in copy.
+#
+#   sudo mkdir -p /etc/cpap-monitor
+#   sudo cp config/config.example.toml /etc/cpap-monitor/config.toml
+#   sudo $EDITOR /etc/cpap-monitor/config.toml    # replace every REPLACE_ME
+#   python3 -m cpapmon validate
+#
+# Every REPLACE_ME below is a placeholder for a secret or site-specific
+# value. The monitor refuses to start (validate fails) while required
+# placeholders remain.
+
+# Which plug backend to use: "tasmota" (PREFERRED) or "kasa".
+#
+# Tasmota is preferred because it is local-HTTP (no cloud, no vendor
+# account) and its watt thresholds are voltage-independent — the SAME
+# config works on 110 V and 230 V mains. Traveling (Iceland/Europe)?
+# This one line is the whole switch: set backend = "tasmota" and bring
+# the Tasmota plug.
+backend = "tasmota"
+
+
+[thresholds]
+# All values in WATTS — voltage-independent, identical at 110 V / 230 V.
+# Tuned against a ResMed AirSense; re-tune with `python3 -m cpapmon check`
+# while watching the machine breathe.
+activity_watt_limit = 4.3      # below this = no breathing activity
+no_activity_timeout_s = 60     # flatline this long => NO_BREATH alarm
+high_watt_limit = 18.5         # above this = runaway blower
+                               # (18.5 avoids false alarms on deep breaths)
+high_watt_timeout_s = 60       # sustained high draw this long => RUNAWAY
+connection_timeout_s = 180     # plug unreachable this long (once armed)
+                               # => CONNECTION_LOST alarm
+
+
+[monitor]
+poll_interval_s = 1.0          # wattage sample rate while reachable
+retry_interval_s = 15.0        # retry cadence while the plug is missing
+startup_delay_s = 30.0         # let the Pi's Wi-Fi / cpap AP come up
+heartbeat_path = "/home/cnewton/cpap-monitor/logs/status.json"
+heartbeat_interval_s = 30.0    # status file refresh (anti-silent-failure)
+
+
+[sound]
+# The local siren, played in a loop via sox `play` until the alarm clears.
+# Any loud mp3/wav. NOT shipped in the repo (mp3s are gitignored) — copy
+# your alarm track onto the Pi and point this at it.
+alarm_file = "/home/cnewton/cpap-monitor/sounds/alarm.mp3"
+
+
+# ---------------------------------------------------------------------
+# Backend parameters. BOTH sections stay filled in at all times; only the
+# one selected by `backend` above is active. Switching backends is a
+# one-line edit, not a re-configuration.
+# ---------------------------------------------------------------------
+
+[tasmota]
+# Athom / any Tasmota-flashed energy-monitoring plug on the Pi-hosted
+# "cpap" network. Local HTTP: GET /cm?cmnd=Status 10.
+host = "192.168.77.11"
+timeout_s = 3.0
+# Only if you set a Tasmota web password (WebPassword). Leave empty for a
+# default no-auth Tasmota. If set, treat like any other secret.
+user = ""
+password = ""
+
+[kasa]
+# TP-Link Kasa plug (home/secondary option; US plugs are 110 V-only).
+# Found by pinned IP first, then LAN discovery by alias — do not rely on
+# a single hardcoded IP.
+alias = "cpapplug1"            # exact plug name from the Kasa app
+host = "192.168.77.10"         # pinned IP on the cpap network
+username = "REPLACE_ME"        # TP-Link cloud account email
+password = "REPLACE_ME"        # TP-Link cloud account password
+timeout_s = 5.0
+
+
+[notify.pushover]
+# Remote push notifications (secondary channel — the LOCAL SIREN is the
+# primary alarm). Disabled by default; with placeholders in place the
+# monitor logs instead of pushing. Email support was deliberately dropped.
+enabled = false
+token = "REPLACE_ME"           # Pushover application API token
+user_key = "REPLACE_ME"        # Pushover user key

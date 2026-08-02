@@ -1,0 +1,65 @@
+"""Local siren via sox `play` — the PRIMARY alarm channel.
+
+The siren loops until explicitly stopped: a player thread re-launches
+`play` each time the track ends, so a 3-minute mp3 still means a
+continuous alarm. stop() kills the current process and ends the loop.
+
+Requires the `sox` package with mp3 support (`sox` + `libsox-fmt-mp3`
+on Raspberry Pi OS / Debian).
+"""
+
+from __future__ import annotations
+
+import logging
+import shutil
+import subprocess
+import threading
+
+log = logging.getLogger("cpapmon.sound")
+
+
+class AlarmSound:
+    def __init__(self, alarm_file: str):
+        self.alarm_file = alarm_file
+        self._proc: subprocess.Popen | None = None
+        self._stop = threading.Event()
+        self._thread: threading.Thread | None = None
+        self._lock = threading.Lock()
+
+    @property
+    def playing(self) -> bool:
+        return self._thread is not None and self._thread.is_alive()
+
+    def start(self) -> None:
+        with self._lock:
+            if self.playing:
+                return
+            if shutil.which("play") is None:
+                log.critical("sox `play` not installed — NO LOCAL SIREN. "
+                             "apt install sox libsox-fmt-mp3")
+                return
+            self._stop.clear()
+            self._thread = threading.Thread(target=self._loop, daemon=True)
+            self._thread.start()
+            log.info("siren started (%s)", self.alarm_file)
+
+    def stop(self) -> None:
+        with self._lock:
+            self._stop.set()
+            if self._proc and self._proc.poll() is None:
+                self._proc.terminate()
+            self._thread = None
+        log.info("siren stopped")
+
+    def _loop(self) -> None:
+        while not self._stop.is_set():
+            try:
+                self._proc = subprocess.Popen(
+                    ["play", "-q", self.alarm_file, "vol", "1.0"],
+                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                self._proc.wait()
+            except Exception as exc:
+                log.error("siren playback error: %s", exc)
+                # Brief pause so a broken audio stack can't busy-loop.
+                if self._stop.wait(timeout=5):
+                    return

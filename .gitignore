@@ -1,0 +1,17 @@
+# Secrets: the real config NEVER enters the repo.
+# It lives at /etc/cpap-monitor/config.toml (see docs/DEPLOY.md).
+config.toml
+
+# Health data: CPAP logs and summaries are personal medical information.
+*.log
+logs/
+nightly-summaries/
+
+# Alarm audio (copyrighted tracks; copy onto the Pi out-of-band).
+*.mp3
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/

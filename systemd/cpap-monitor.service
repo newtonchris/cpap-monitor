@@ -1,0 +1,38 @@
+# cpap-monitor systemd unit.
+#
+# Install (or just run scripts/install.sh):
+#   sudo cp systemd/cpap-monitor.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now cpap-monitor
+#
+# Deploy path is /home/cnewton/cpap-monitor (a git checkout of this repo);
+# the real config lives at /etc/cpap-monitor/config.toml (0640,
+# root:cnewton). ExecStartPre validates the config so a broken edit fails
+# LOUDLY at start instead of producing a monitor that silently can't alarm.
+
+[Unit]
+Description=CPAP failure alarm (smart-plug wattage watchdog)
+Documentation=file:///home/cnewton/cpap-monitor/README.md
+After=network-online.target sound.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=cnewton
+WorkingDirectory=/home/cnewton/cpap-monitor
+ExecStartPre=/usr/bin/python3 -m cpapmon validate --config /etc/cpap-monitor/config.toml
+ExecStart=/usr/bin/python3 -m cpapmon run --config /etc/cpap-monitor/config.toml
+
+# This is a safety device: always come back.
+Restart=always
+RestartSec=5
+# Never give up restarting, even during a crash loop.
+StartLimitIntervalSec=0
+
+# Journald captures stdout/stderr; view with:
+#   journalctl -u cpap-monitor -f
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

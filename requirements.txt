@@ -1,0 +1,6 @@
+# Runtime: the tasmota backend (preferred/default) is pure stdlib.
+# python-kasa is only needed when backend = "kasa".
+python-kasa>=0.7
+
+# Development / tests
+pytest>=7.0
