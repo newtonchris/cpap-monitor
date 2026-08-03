@@ -106,6 +106,33 @@ Both backend sections stay filled in in the config at all times. To
 travel, change **one line** (`backend = "tasmota"`), pack the Tasmota
 plug, done. Watt thresholds don't change.
 
+## Hardware — it runs on almost any always-on computer
+
+Nothing here is Raspberry-Pi-specific. The monitor is just **Python + `sox`**
+talking to a smart plug over the network, so it runs on basically **any
+always-on machine that can (a) reach the plug on your LAN and (b) make noise** —
+a Raspberry Pi, a fanless mini-PC, an old laptop, a home server/NAS that runs
+Python, even a Mac (with `sox`; swap the systemd unit for launchd).
+
+Minimum needs:
+* **Python 3.11+** (uses stdlib `tomllib`; on older Python add `tomli`).
+* **`sox`** for the siren (`sudo apt install sox libsox-fmt-all`) plus a working
+  audio output — or route the alarm elsewhere.
+* **On the same network as the plug**, and **always on** — it has to be running
+  the entire time you're asleep.
+
+**Pick something SILENT for the bedroom.** This box sits next to where you sleep
+and runs all night, so a whirring fan defeats the whole purpose. That's the real
+reason the reference build is a **Raspberry Pi — fanless, silent, low-power, and
+cheap.** Any quiet/fanless machine is great; avoid anything with an audible fan.
+
+Two Pi-specific conveniences in the default setup are **optional**:
+* The Pi **hosts its own `cpap` Wi-Fi network** for the plug (handy for travel and
+  isolation). A stationary home box can skip that — just put the plug on your
+  normal Wi-Fi and point the config at its IP/alias.
+* The systemd unit and the `/home/cnewton/cpap-monitor` path assume a Linux host;
+  adjust paths (or the service manager) for your machine.
+
 ## Quick start
 
 ```bash
