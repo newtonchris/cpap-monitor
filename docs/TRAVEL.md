@@ -10,9 +10,8 @@ things to verify on arrival are *physical*: that the plug is rated/calibrated fo
 local mains, and that everything powered up and re-armed. This checklist is the
 30-second on-site verification — do it **once, awake, before you rely on it to sleep.**
 
-> **Use the Tasmota backend abroad.** Set `backend = "tasmota"` (the default). The
-> Tasmota (EU/220 V) plug is the travel plug; the **Kasa plug is US-only 110 V** and
-> won't work overseas — don't rely on it outside North America.
+> **Bring the Tasmota plug.** It is dual-voltage (EU/220 V-rated) and the monitor's
+> only plug — nothing in the software changes for travel.
 
 ---
 

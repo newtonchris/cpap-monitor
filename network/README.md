@@ -49,8 +49,8 @@ regenerates the drop-in).
 * **Static DHCP reservations per plug MAC** (the generated
   `dnsmasq-shared.d/cpap-plugs.conf`). An unpinned plug that drifts to a
   new lease breaks the monitor's configured `host` — IP drift is how the
-  predecessor alarm was silently dead for 78 days. Convention: `.10`
-  Kasa, `.11` Tasmota; keep `[tasmota]/[kasa] host` in
+  predecessor alarm was silently dead for 78 days. Convention: `.11`
+  Tasmota; keep `[tasmota] host` in
   `/etc/cpap-monitor/config.toml` matching.
 
 ## Gotchas

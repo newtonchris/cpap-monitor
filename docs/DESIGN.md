@@ -11,10 +11,10 @@ therapy.
 
 ## History: two scripts, one 78-day silence
 
-This repo replaces two divergent field scripts (`alarm.py` for Kasa,
-`alarm_tasmota.py` for Tasmota) that each carried their own copy of the
-alarm logic, their own config constants, and an SMTP notifier bolted to a
-burner Gmail account. The predecessor was **silently dead for 78 days**:
+This repo replaces two divergent field scripts (`alarm.py` and
+`alarm_tasmota.py`, one per plug vendor) that each carried their own copy
+of the alarm logic, their own config constants, and an SMTP notifier
+bolted to a burner Gmail account. The predecessor was **silently dead for 78 days**:
 the process wasn't running, nothing watched it, and the notify channel
 that might have said so had rotted. Every structural choice below is a
 response to that.
@@ -33,7 +33,7 @@ response to that.
    +----------------v-+   +--v---------v-----------+
    | backends/         |   |  state.py (PURE)       |
    |  tasmota (HTTP)   |   |  SEARCHING→ARMED→      |
-   |  kasa (python-kasa)|  |  ALARMING              |
+   |                   |   |  ALARMING              |
    +-------------------+   +--+------+------+-------+
                               |      |      |
                         sound.py  notify.py heartbeat.py
@@ -46,8 +46,9 @@ All alarm decisions live in `state.py`: a pure state machine with two
 inputs (`on_reading(now, watts)`, `on_unreachable(now)`) and event-list
 outputs. It touches no clock, socket, or file, which is what makes the
 test suite in `tests/test_monitor.py` possible without hardware — and
-what guarantees the two backends can never drift apart in behaviour
-again. The entire hardware contract is:
+what guarantees the alarm behaviour can never drift with the hardware
+again (the predecessor's two scripts each had their own copy of the
+logic). The entire hardware contract is:
 
 ```python
 read_watts() -> float          # or raises PlugUnreachable
@@ -77,21 +78,19 @@ read_watts() -> float          # or raises PlugUnreachable
 60 s windows because breath-to-breath modulation routinely dips under
 the activity limit for tens of seconds.
 
-### Backends
+### Backend
 
-* **tasmota (preferred/default):** one local HTTP GET
+* **tasmota (the only shipped backend):** one local HTTP GET
   (`/cm?cmnd=Status 10`), no cloud, no account, and — because the plug
   hardware is dual-voltage and the thresholds are in watts — the same
-  config works on 110 V and 230 V mains. It is the travel backend.
+  config works on 110 V and 230 V mains, so it travels as-is.
   The `Status 10` parser tolerates all three response shapes seen in
   the field (`StatusSNS.ENERGY`, top-level `ENERGY`, `SENSOR.ENERGY`).
-* **kasa (secondary):** python-kasa, pinned IP first then discovery by
-  alias, because Kasa plugs move IPs and newer firmware (KLAP) demands
-  cloud-account credentials even for LAN reads — two of the reasons it
-  isn't the default.
 
-Both config sections are always populated; `backend = "tasmota"|"kasa"`
-is the entire switch.
+The backend factory (`backends/__init__.py`) plus the `read_watts()`
+contract in `backends/base.py` keep the architecture pluggable: a future
+plug type adds a module, a config section, and a factory branch —
+`state.py` never changes.
 
 ## Anti-silent-failure design
 

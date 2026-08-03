@@ -1,6 +1,6 @@
-"""Tasmota backend — the PREFERRED backend.
+"""Tasmota backend — the only shipped backend.
 
-Why Tasmota is preferred over Kasa:
+Why Tasmota:
 
 * **Local HTTP, no cloud.** One GET to the plug on the LAN. No vendor
   account, no credentials on disk beyond an optional web password, works

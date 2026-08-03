@@ -1,13 +1,13 @@
 """TOML config loading + validation (stdlib tomllib, Python >= 3.11).
 
 The real config lives OUTSIDE the repo at /etc/cpap-monitor/config.toml
-(mode 0640) because it contains secrets (Kasa account credentials, Pushover
-token). The repo ships only config/config.example.toml with REPLACE_ME
-placeholders. Never commit a real config.
+(mode 0640) because it contains secrets (Pushover token, optional Tasmota
+web password). The repo ships only config/config.example.toml with
+REPLACE_ME placeholders. Never commit a real config.
 
-Both backend sections ([tasmota] and [kasa]) are always present in the
-file; only the one named by the top-level `backend` key is active. That
-makes travel switchovers a one-line edit.
+The top-level `backend` key selects the plug backend. Tasmota is the only
+shipped backend; the key stays because the architecture is deliberately
+backend-selectable (see cpapmon/backends/).
 """
 
 from __future__ import annotations
@@ -34,15 +34,6 @@ class TasmotaConfig:
     timeout_s: float = 3.0
     user: str = ""          # only if a Tasmota web password is set
     password: str = ""
-
-
-@dataclass(frozen=True)
-class KasaConfig:
-    alias: str = ""
-    host: str = ""          # pinned IP; discovery-by-alias is the fallback
-    username: str = ""      # TP-Link cloud account email
-    password: str = ""
-    timeout_s: float = 5.0
 
 
 @dataclass(frozen=True)
@@ -73,7 +64,6 @@ class AppConfig:
     monitor: MonitorConfig = field(default_factory=MonitorConfig)
     sound: SoundConfig = field(default_factory=SoundConfig)
     tasmota: TasmotaConfig = field(default_factory=TasmotaConfig)
-    kasa: KasaConfig = field(default_factory=KasaConfig)
     pushover: PushoverConfig = field(default_factory=PushoverConfig)
 
     # ------------------------------------------------------------------ #
@@ -85,20 +75,13 @@ class AppConfig:
         """Return a list of problems; empty list means the config is sane."""
         problems = list(self.thresholds.validate())
 
-        if self.backend not in ("tasmota", "kasa"):
+        if self.backend != "tasmota":
             problems.append(
-                f"backend must be 'tasmota' or 'kasa', got {self.backend!r}")
+                f"backend must be 'tasmota' (the only shipped backend), "
+                f"got {self.backend!r}")
 
         if self.backend == "tasmota" and not self.tasmota.host:
             problems.append("[tasmota] host is required (backend = tasmota)")
-        if self.backend == "kasa":
-            if not (self.kasa.alias or self.kasa.host):
-                problems.append(
-                    "[kasa] needs alias and/or host (backend = kasa)")
-            for key in ("username", "password"):
-                if _PLACEHOLDER in getattr(self.kasa, key):
-                    problems.append(
-                        f"[kasa] {key} still contains {_PLACEHOLDER}")
 
         if not self.sound.alarm_file:
             problems.append("[sound] alarm_file is required "
@@ -160,6 +143,5 @@ def load(path: str | Path = DEFAULT_CONFIG_PATH) -> AppConfig:
         monitor=build(MonitorConfig, _section(data, "monitor")),
         sound=build(SoundConfig, _section(data, "sound")),
         tasmota=build(TasmotaConfig, _section(data, "tasmota")),
-        kasa=build(KasaConfig, _section(data, "kasa")),
         pushover=build(PushoverConfig, _section(data, "notify", "pushover")),
     )

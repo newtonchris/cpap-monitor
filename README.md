@@ -71,40 +71,36 @@ On alarm the monitor loops a loud mp3 through the Pi's audio output via
 sox (`play`) until the condition clears, logs the event, and — if
 configured — sends a Pushover notification.
 
-## Two backends, one brain
+## One backend, one brain
 
 All alarm logic lives in a single pure state machine
 (`cpapmon/state.py`): **SEARCHING → ARMED → ALARMING**. The hardware is
-abstracted behind one method, `read_watts()`. Two plug backends implement
-it, selected by a single config key:
+abstracted behind one method, `read_watts()` — a pluggable backend
+contract (`cpapmon/backends/`), selected by a single config key. Tasmota
+is the only shipped backend, but a future plug type would just implement
+`read_watts()` and register in the factory:
 
 ```toml
-backend = "tasmota"   # or "kasa"
+backend = "tasmota"
 ```
 
-### Tasmota — preferred and default
+### Tasmota — the backend
 
 * **Local HTTP, no cloud.** One `GET http://<plug>/cm?cmnd=Status 10` on
   the LAN. No vendor account, no credentials, works with the internet
   down.
 * **Works at all mains voltages (110 V / 230 V).** Combined with
-  watt-based thresholds, this makes it **the travel backend** — take it
+  watt-based thresholds, this makes it fully **travel-ready** — take it
   to Iceland or anywhere in Europe and nothing changes but the wall
   adapter.
 * Reference hardware: Athom PG03 v4 (US16A) with factory Tasmota.
 
-### Kasa (TP-Link) — home/secondary
+### Iceland (and any other 230 V country)
 
-* Uses `python-kasa`; found by pinned IP first, then LAN discovery by
-  alias (survives DHCP moves).
-* Needs TP-Link cloud account credentials on disk (even for local reads
-  on newer plugs), and US Kasa hardware is typically 110 V-only.
-
-### The Iceland switch
-
-Both backend sections stay filled in in the config at all times. To
-travel, change **one line** (`backend = "tasmota"`), pack the Tasmota
-plug, done. Watt thresholds don't change.
+Nothing in the config changes for travel: the thresholds are in watts
+(voltage-independent) and the plug hardware is dual-voltage. Pack the
+Tasmota plug and the Pi, run the arrival checklist in
+[docs/TRAVEL.md](docs/TRAVEL.md), done.
 
 ## Hardware — it runs on almost any always-on computer
 
@@ -129,7 +125,7 @@ cheap.** Any quiet/fanless machine is great; avoid anything with an audible fan.
 Two Pi-specific conveniences in the default setup are **optional**:
 * The Pi **hosts its own `cpap` Wi-Fi network** for the plug (handy for travel and
   isolation). A stationary home box can skip that — just put the plug on your
-  normal Wi-Fi and point the config at its IP/alias.
+  normal Wi-Fi and point the config at its IP.
 * The systemd unit and the `/home/cnewton/cpap-monitor` path assume a Linux host;
   adjust paths (or the service manager) for your machine.
 
@@ -138,7 +134,7 @@ Two Pi-specific conveniences in the default setup are **optional**:
 ```bash
 git clone <this-repo> /home/cnewton/cpap-monitor
 cd /home/cnewton/cpap-monitor
-pip install -r requirements.txt          # python-kasa only needed for kasa
+pip install -r requirements.txt          # dev/test tools only; runtime is stdlib
 sudo scripts/install.sh                  # unit + /etc/cpap-monitor skeleton
 sudo $EDITOR /etc/cpap-monitor/config.toml   # fill every REPLACE_ME
 python3 -m cpapmon validate              # config sanity check

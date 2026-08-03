@@ -11,7 +11,7 @@ alarming while someone sleeps*.
    Pi, confirm the service is active and ARMED before you disconnect:
    `systemctl status cpap-monitor` + a fresh heartbeat file + an
    `ARMED` line in `journalctl -u cpap-monitor`.
-2. **Secrets never enter git.** This repo is PUBLIC. No Kasa/TP-Link
+2. **Secrets never enter git.** This repo is PUBLIC. No plug/vendor
    account credentials, no Wi-Fi passphrases, no Pushover tokens, no
    real emails — only `REPLACE_ME` placeholders in
    `config/config.example.toml`. The real config is
@@ -36,9 +36,8 @@ cpapmon/                  Python package (runs in place; no pip install)
                           behaviour changes start (and are tested) here.
   backends/
     base.py               contract: read_watts() -> float | PlugUnreachable
-    tasmota.py            PREFERRED backend: local HTTP, any mains voltage
-    kasa.py               secondary: python-kasa, pinned IP + alias discovery
-    __init__.py           make_backend(cfg) factory
+    tasmota.py            the only shipped backend: local HTTP, any mains voltage
+    __init__.py           make_backend(cfg) factory (keeps backends pluggable)
   config.py               tomllib loader + validate(); dataclasses
   runner.py               poll loop; turns state-machine events into
                           siren/log/notify/heartbeat side effects
@@ -59,27 +58,29 @@ docs/TRAVEL.md            new-location/voltage arrival checklist (thresholds are
 
 ## Conventions
 
-* Python >= 3.11 (stdlib `tomllib`), stdlib-only in the core; `python-kasa`
-  is imported lazily inside the kasa backend so the tasmota path never
-  needs it.
+* Python >= 3.11 (stdlib `tomllib`), stdlib-only at runtime — the tasmota
+  backend uses only urllib. A future backend with third-party deps must
+  import them lazily inside its own module so the tasmota path never
+  needs them.
 * All alarm *decisions* go in `state.py` and get a test. `runner.py` only
   executes events. Don't let I/O leak into `state.py`.
 * Thresholds are WATTS (voltage-independent) with field-tuned defaults
   (4.3 / 18.5 / 60 s / 60 s / 180 s). Don't change defaults casually —
   they encode real-hardware tuning against a ResMed (18.5 W exists
   because deep breaths spike the draw).
-* Config: both backend sections always populated; `backend = "..."` is
-  the only switch. Keep it that way — it's the one-line travel switch.
+* Config: `backend = "..."` selects the plug backend. Tasmota is the only
+  shipped backend, but keep the key and the factory — the architecture
+  stays backend-selectable for a future plug type.
 * Logging goes to stdout; journald owns persistence. Never write
   root-owned files into the deploy dir (classic crash-loop trap).
 
-## How to switch backends
+## How to add a backend (none planned; Tasmota is the only one shipped)
 
-Edit `/etc/cpap-monitor/config.toml`: set `backend = "tasmota"` or
-`"kasa"`, then `python3 -m cpapmon validate && python3 -m cpapmon check`
-and `sudo systemctl restart cpap-monitor`. Verify the ARMED log line
-appears. Tasmota is the travel/default choice (local HTTP, works on
-110 V and 230 V); Kasa is the home spare.
+Implement `read_watts()` per `backends/base.py`, add a config dataclass +
+section in `config.py`, and a branch in `make_backend()` — `state.py`
+never changes. After any backend/config edit on the Pi:
+`python3 -m cpapmon validate && python3 -m cpapmon check` and
+`sudo systemctl restart cpap-monitor`; verify the ARMED log line appears.
 
 ## How to deploy to a new Pi
 
@@ -128,9 +129,10 @@ itself** while setting up. Don't bog the Pi down:
 * **Tasmota `Status 10` response shape varies** by build: `ENERGY` may be
   under `StatusSNS`, top-level, or under `SENSOR`.
   `tasmota.extract_power_watts()` handles all three — keep it tolerant.
-* **Kasa plugs need the cloud-account credentials even for LAN reads**
-  (KLAP protocol on newer firmware) and can move IPs — hence pinned IP
-  with discovery-by-alias fallback. Never hardcode only an IP.
+* **Smart plugs move IPs unless you pin them.** Always give the plug a
+  static DHCP reservation (network/setup-network.sh does this) and keep
+  `[tasmota] host` matching — IP drift is how the predecessor alarm was
+  silently dead for 78 days.
 
 ## History that shapes this design
 

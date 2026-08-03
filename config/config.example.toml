@@ -12,13 +12,14 @@
 # value. The monitor refuses to start (validate fails) while required
 # placeholders remain.
 
-# Which plug backend to use: "tasmota" (PREFERRED) or "kasa".
+# Which plug backend to use. "tasmota" is the ONLY shipped backend; the
+# key exists because the architecture is backend-selectable (a future
+# plug type would add its own backend + section).
 #
-# Tasmota is preferred because it is local-HTTP (no cloud, no vendor
-# account) and its watt thresholds are voltage-independent — the SAME
-# config works on 110 V and 230 V mains. Traveling (Iceland/Europe)?
-# This one line is the whole switch: set backend = "tasmota" and bring
-# the Tasmota plug.
+# Tasmota is local-HTTP (no cloud, no vendor account) and its watt
+# thresholds are voltage-independent — the SAME config works on 110 V and
+# 230 V mains. Traveling (Iceland/Europe)? Nothing changes here; just
+# bring the Tasmota plug and a wall adapter.
 backend = "tasmota"
 
 
@@ -59,9 +60,8 @@ alarm_file = "/home/cnewton/cpap-monitor/sounds/alarm.wav"
 
 
 # ---------------------------------------------------------------------
-# Backend parameters. BOTH sections stay filled in at all times; only the
-# one selected by `backend` above is active. Switching backends is a
-# one-line edit, not a re-configuration.
+# Backend parameters — one section per backend, selected by `backend`
+# above. Tasmota is the only shipped backend.
 # ---------------------------------------------------------------------
 
 [tasmota]
@@ -73,16 +73,6 @@ timeout_s = 3.0
 # default no-auth Tasmota. If set, treat like any other secret.
 user = ""
 password = ""
-
-[kasa]
-# TP-Link Kasa plug (home/secondary option; US plugs are 110 V-only).
-# Found by pinned IP first, then LAN discovery by alias — do not rely on
-# a single hardcoded IP.
-alias = "cpapplug1"            # exact plug name from the Kasa app
-host = "192.168.77.10"         # pinned IP on the cpap network
-username = "REPLACE_ME"        # TP-Link cloud account email
-password = "REPLACE_ME"        # TP-Link cloud account password
-timeout_s = 5.0
 
 
 [notify.pushover]

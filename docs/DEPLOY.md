@@ -66,7 +66,7 @@ that matter most:
   to `/etc/NetworkManager/dnsmasq-shared.d/cpap-plugs.conf`). Unpinned
   plugs drift to new leases and silently break the monitor's `host`
   config — IP drift is how the predecessor alarm was dead for 78 days.
-  Convention: `.10` Kasa, `.11` Tasmota.
+  Convention: `.11` Tasmota.
 
 **Hard-won networking notes (read before fighting the plugs):**
 
@@ -100,10 +100,9 @@ sudo $EDITOR /etc/cpap-monitor/config.toml
 
 Replace **every** `REPLACE_ME`:
 
-* `[kasa] username/password` — TP-Link account (only if you'll use kasa)
 * `[notify.pushover] token/user_key` — if/when enabling push
-* check `[tasmota] host` / `[kasa] host` match the reservations you
-  pinned in step 1 (`.11` / `.10`)
+* check `[tasmota] host` matches the reservation you pinned in step 1
+  (`.11`)
 * `[sound] alarm_file` — either keep the shipped escalating siren
   (regenerate with `make siren`) or copy your own LOUD mp3 onto the Pi
   (mp3s are deliberately not in the repo):

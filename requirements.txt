@@ -1,6 +1,4 @@
-# Runtime: the tasmota backend (preferred/default) is pure stdlib.
-# python-kasa is only needed when backend = "kasa".
-python-kasa>=0.7
+# Runtime: NO dependencies — the tasmota backend is pure stdlib (urllib).
 
-# Development / tests
+# Development / tests only
 pytest>=7.0

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from .base import Backend, PlugUnreachable
 
-BACKEND_NAMES = ("tasmota", "kasa")
+BACKEND_NAMES = ("tasmota",)
 
 
 def make_backend(cfg) -> Backend:
@@ -14,12 +14,6 @@ def make_backend(cfg) -> Backend:
         t = cfg.tasmota
         return TasmotaBackend(host=t.host, timeout_s=t.timeout_s,
                               user=t.user, password=t.password)
-    if cfg.backend == "kasa":
-        from .kasa import KasaBackend
-        k = cfg.kasa
-        return KasaBackend(alias=k.alias, host=k.host,
-                           username=k.username, password=k.password,
-                           timeout_s=k.timeout_s)
     raise ValueError(
         f"unknown backend {cfg.backend!r}; expected one of {BACKEND_NAMES}")
 

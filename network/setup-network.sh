@@ -147,7 +147,7 @@ rm -f "${TMP}"
 sed 's/^/    /' "${DROPIN_FILE}"
 
 # Warn about OTHER drop-ins that might carry conflicting/duplicate pins
-# (e.g. a hand-made cpap-kasa.conf from an earlier build).
+# (e.g. a hand-made drop-in left over from an earlier build).
 for f in "${DROPIN_DIR}"/*.conf; do
     [[ "${f}" == "${DROPIN_FILE}" ]] && continue
     [[ -e "${f}" ]] || continue

@@ -1,7 +1,7 @@
 """Pure alarm-logic state machine. No I/O, no clocks, no hardware.
 
-This is the single source of truth for WHEN the alarm fires. Both backends
-(tasmota, kasa) feed it the same two inputs:
+This is the single source of truth for WHEN the alarm fires. The backend
+(tasmota) feeds it the same two inputs any backend would:
 
     on_reading(now, watts)   -- a successful wattage sample
     on_unreachable(now)      -- the plug could not be reached
