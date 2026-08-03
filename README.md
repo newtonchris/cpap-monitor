@@ -86,7 +86,10 @@ journalctl -u cpap-monitor -f            # watch it arm
 
 Full new-Pi walkthrough (including the plug Wi-Fi network):
 [docs/DEPLOY.md](docs/DEPLOY.md). Architecture and rationale:
-[docs/DESIGN.md](docs/DESIGN.md).
+[docs/DESIGN.md](docs/DESIGN.md). Traveling to a different country/voltage
+(e.g. Iceland, 230 V): [docs/TRAVEL.md](docs/TRAVEL.md) — the watt thresholds
+are voltage-independent, but run the arrival checklist to verify the plug's
+meter on-site.
 
 ## CLI
 

@@ -53,6 +53,8 @@ systemd/cpap-monitor.service
 scripts/install.sh        idempotent: unit + /etc/cpap-monitor + perms
 docs/DEPLOY.md            fresh-Pi bring-up, incl. plug Wi-Fi network
 docs/DESIGN.md            architecture + anti-silent-failure rationale
+docs/TRAVEL.md            new-location/voltage arrival checklist (thresholds are
+                          watt-based = voltage-independent; verify meter on-site)
 ```
 
 ## Conventions
