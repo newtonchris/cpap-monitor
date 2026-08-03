@@ -13,8 +13,13 @@
 [Unit]
 Description=CPAP failure alarm (smart-plug wattage watchdog)
 Documentation=file:///home/cnewton/cpap-monitor/README.md
-After=network-online.target sound.target
-Wants=network-online.target
+# The plug network is LOCAL — the Pi hosts its own `cpap` Wi-Fi AP and the
+# monitor talks to the plug over it. It needs NO internet/ethernet, so do NOT
+# gate startup on network-online.target: that would delay (or, on some
+# hardware, stall) boot while waiting for an uplink that may not exist (hotel /
+# Iceland / no ethernet). Start once NetworkManager is up (it brings the AP);
+# the runner's startup delay + SEARCHING/retry loop tolerates the AP settling.
+After=NetworkManager.service sound.target
 
 [Service]
 Type=simple
@@ -34,6 +39,10 @@ Restart=always
 RestartSec=5
 # Never give up restarting, even during a crash loop.
 StartLimitIntervalSec=0
+
+# Make sure the siren always dies when the service stops/restarts — a looping
+# sox `play` child can otherwise outlive a hard restart and keep blaring.
+ExecStopPost=-/usr/bin/pkill -f "play .*"
 
 # Journald captures stdout/stderr; view with:
 #   journalctl -u cpap-monitor -f
