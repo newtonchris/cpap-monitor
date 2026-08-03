@@ -77,14 +77,47 @@ def test_searching_is_silent_on_unreachable():
     assert m.state is State.SEARCHING
 
 
-def test_arming_on_idle_watts_does_not_instantly_alarm():
-    """Plug answers while CPAP is still off: arm, then give the operator
-    the full no-breath window before complaining."""
+def test_idle_plug_stays_in_silent_standby():
+    """arm-after-active: a reachable-but-idle plug (machine off, e.g. a daytime
+    reboot) must NOT arm and must NEVER alarm. This is what makes the monitor
+    safe to auto-start on boot."""
     m = Monitor(thresholds=T)
     events = m.on_reading(0.0, IDLE)
+    assert events == []                      # no ARMED event
+    assert m.state is State.SEARCHING
+    # Hours of idle: still silent, never arms, never alarms.
+    events, _ = feed(m, 1.0, 10_000, IDLE)
+    assert events == []
+    assert m.state is State.SEARCHING
+
+
+def test_arms_only_after_machine_runs():
+    """Idle first (silent), then the machine actually runs -> ARM."""
+    m = Monitor(thresholds=T)
+    assert m.on_reading(0.0, IDLE) == []     # standby
+    events = m.on_reading(5.0, BREATHING)    # machine started
     assert kinds(events) == [EventKind.ARMED]
-    events, _ = feed(m, 1.0, 30, IDLE)  # only 30s idle so far
-    assert EventKind.ALARM_START not in kinds(events)
+    assert m.state is State.ARMED
+
+
+def test_no_breath_auto_stands_down():
+    """Once ARMED, a NO_BREATH alarm that rings past alarm_auto_standby_s with
+    no recovery stands down to silent SEARCHING (no empty-room siren all day),
+    and re-arms only when the machine runs again."""
+    Ts = Thresholds(activity_watt_limit=4.3, no_activity_timeout_s=60,
+                    high_watt_limit=18.5, high_watt_timeout_s=60,
+                    connection_timeout_s=180, alarm_auto_standby_s=300)
+    m = Monitor(thresholds=Ts)
+    _, now = feed(m, 0.0, 30, BREATHING)     # arm
+    events, now = feed(m, now, 90, IDLE)     # -> NO_BREATH alarm
+    assert AlarmReason.NO_BREATH in [e.reason for e in events
+                                     if e.kind is EventKind.ALARM_START]
+    assert m.state is State.ALARMING
+    events, now = feed(m, now, 320, IDLE)    # keep idle past the stand-down
+    assert EventKind.ALARM_STOP in kinds(events)
+    assert m.state is State.SEARCHING        # silent standby, awaiting re-arm
+    # ...and it re-arms when the machine runs again:
+    assert kinds(m.on_reading(now + 1, BREATHING)) == [EventKind.ARMED]
 
 
 # --------------------------------------------------------------------- #

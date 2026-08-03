@@ -50,7 +50,7 @@ class Runner:
                      int(m.startup_delay_s))
             time.sleep(m.startup_delay_s)
 
-        log.info("SEARCHING for plug (silent standby until first contact)")
+        log.info("SEARCHING — silent standby until the machine is running")
         self.heartbeat.beat(self.monitor.state.value, None, force=True)
 
         watts: float | None = None
@@ -82,7 +82,7 @@ class Runner:
 
         if kind is EventKind.ARMED:
             # The anti-silent-failure "I am actually watching you" line.
-            log.info("ARMED — plug answered (%.2f W); monitoring is LIVE",
+            log.info("ARMED — machine running (%.2f W); monitoring is LIVE",
                      event.watts)
             self.heartbeat.beat(self.monitor.state.value, event.watts,
                                 force=True)

@@ -20,6 +20,12 @@ Wants=network-online.target
 Type=simple
 User=cnewton
 WorkingDirectory=/home/cnewton/cpap-monitor
+
+# REQUIRED for the siren to actually make sound: sox `play` needs the user's
+# audio session. Without this the alarm can fire but stay SILENT — the worst
+# failure mode. Assumes the operator account is uid 1000 (the Pi default);
+# change /run/user/1000 if the account's uid differs (`id -u <user>`).
+Environment=XDG_RUNTIME_DIR=/run/user/1000
 ExecStartPre=/usr/bin/python3 -m cpapmon validate --config /etc/cpap-monitor/config.toml
 ExecStart=/usr/bin/python3 -m cpapmon run --config /etc/cpap-monitor/config.toml
 
