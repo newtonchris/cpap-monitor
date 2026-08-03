@@ -2,6 +2,11 @@
 # It lives at /etc/cpap-monitor/config.toml (see docs/DEPLOY.md).
 config.toml
 
+# Site network values (contains the plug-network Wi-Fi passphrase).
+# Only network/network.env.example (placeholders) is committed.
+network/network.env
+*.env
+
 # Health data: CPAP logs and summaries are personal medical information.
 *.log
 logs/
