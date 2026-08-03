@@ -9,6 +9,41 @@ notification) when something is wrong.
 > CPAP stops doing its job. Every design decision below bends toward
 > "never be silently broken."
 
+## Who this is for (and the problem it solves)
+
+CPAP therapy only helps while the mask is on and the machine is running. But
+plenty of people **pull the mask off in their sleep without ever waking up** —
+or the hose pops off, or the machine quietly quits — and then spend the rest of
+the night getting **no therapy at all**. You wake up exhausted and never know
+why it was a bad night.
+
+This is a cheap, do-it-yourself early-warning alarm for exactly that. It never
+touches your CPAP, your air, or your data — it just watches how much
+**electricity** the machine pulls through a smart plug, and sounds a loud siren
+(and optionally pings your phone) the moment the power pattern says therapy has
+stopped. You — or a caregiver in the next room — wake up and put the mask back
+on. No cloud, no subscription, no special medical gear: a Raspberry Pi and a
+~$15 energy-monitoring smart plug.
+
+## ⚠️ Disclaimer — no warranty, use at your own risk
+
+**This is NOT a medical device.** It is a hobbyist DIY project. It is **not**
+FDA-cleared, CE-marked, or certified as an apnea/CPAP alarm, and it is **not a
+substitute** for prescribed medical equipment, a certified alarm, or
+professional medical advice.
+
+- Provided **"AS IS", WITHOUT WARRANTY OF ANY KIND**, express or implied. **You
+  assume all risk.** The authors and contributors accept **no liability** for any
+  injury, harm, missed alarm, false alarm, lost sleep, or damage arising from its
+  use or failure.
+- It infers "is the machine working?" from a **crude, plug-level power reading
+  only.** It can **miss real failures** and can **false-alarm.** **Do not rely on
+  it as a life-safety device.**
+- Nothing here is medical advice. **Talk to your physician, sleep specialist, or
+  DME provider,** and do not change your CPAP settings based on this tool.
+
+By using this software you accept these terms.
+
 ## How the wattage method works
 
 A CPAP with a breathing human attached doesn't draw constant power — the
@@ -24,10 +59,13 @@ through it":
 | Plug unreachable (Wi-Fi/power problem) | no readings for **3 min** (once armed) | **CONNECTION_LOST** |
 
 Thresholds are in **watts** and therefore **voltage-independent** — the
-same numbers hold on 110 V and 230 V mains. They were tuned against a
-ResMed AirSense; re-tune yours with `python3 -m cpapmon check` while
-watching the machine breathe. (18.5 W, not lower, because deep breaths
-briefly spike the draw.)
+same numbers hold on 110 V and 230 V mains. The shipped defaults
+(**4.3 W / 18.5 W**) were tuned for a **ResMed AirSense 10 (S10) AutoSet
+running ~6–10 cmH₂O**. A different machine, mask, humidifier, or pressure
+range draws different power, so **you will almost certainly need to re-tune**
+yours with `python3 -m cpapmon check` while watching the machine breathe
+(see [Tuning it for your CPAP](#tuning-it-for-your-cpap)). (18.5 W, not
+lower, because deep breaths briefly spike the draw.)
 
 On alarm the monitor loops a loud mp3 through the Pi's audio output via
 sox (`play`) until the condition clears, logs the event, and — if
@@ -90,6 +128,52 @@ Full new-Pi walkthrough (including the plug Wi-Fi network):
 (e.g. Iceland, 230 V): [docs/TRAVEL.md](docs/TRAVEL.md) — the watt thresholds
 are voltage-independent, but run the arrival checklist to verify the plug's
 meter on-site.
+
+## Alarm sound (bring your own, or use the escalating siren)
+
+The siren is just an audio file you point `[sound] alarm_file` at, played on a
+loop through the Pi's speaker until the alarm clears. **Use whatever will
+actually wake *you*** — a song, an air-horn, a klaxon, your kid yelling your
+name. (Personally I use a Jimmy Cliff track. Pick something you can't sleep
+through.)
+
+The repo ships a default original, royalty-free **escalating siren**,
+`sounds/alarm.wav`: it **starts mild and ramps through several levels to a
+full "nuclear-hazard" blare** — a gentle nudge if you stir quickly, impossible
+to sleep through if the failure persists. Regenerate or customize it with
+`scripts/make-siren.sh` (pure `sox`, no downloads). Your own `*.mp3` files are
+git-ignored, so drop any track on the Pi and point the config at it — nothing
+personal or copyrighted ever lands in this public repo.
+
+## Tuning it for your CPAP
+
+The two wattage thresholds are the **only** machine-specific numbers, and the
+defaults fit exactly one setup (ResMed AirSense 10 AutoSet, ~6–10 cmH₂O). Your
+model, mask, humidifier, and pressure will draw differently, so plan to re-tune:
+
+1. `python3 -m cpapmon check` with the machine **off** → note the **idle** watts.
+2. `python3 -m cpapmon check` while **breathing normally on the mask** → note the
+   **running** watts.
+3. In `/etc/cpap-monitor/config.toml`, set `activity_watt_limit` between the two
+   (comfortably above idle) and `high_watt_limit` above your highest normal
+   reading. Re-run `check` until idle reads clearly below and running clearly
+   above the line. (Same idea for a new country/voltage — see
+   [docs/TRAVEL.md](docs/TRAVEL.md).)
+
+**Not comfortable doing that yourself?** The whole job — clone it, flash a Pi,
+set up the plug network, read your machine's watts, and dial the thresholds in
+for your model and pressures — is very doable in an evening with an AI coding
+assistant. Roughly **~$20 for one month of something like
+[Claude Code](https://www.anthropic.com/claude-code)** (cancel afterward) can
+most likely walk you through the entire setup and tune it to your CPAP — this
+repository was itself built and tuned that way.
+
+> **On a low-RAM Pi (the 3B/3B+ has ~1 GB), don't run the AI assistant *on* the
+> Pi** — it'll bog down. Run Claude Code (or similar) on a **separate, more
+> powerful computer** and give it **SSH access to the Pi** (a sudo account, or a
+> temporary root key) so the heavy work happens off-box. **Remove that access
+> when you're done** — delete the temp key and any passwordless-sudo entry, and
+> re-tighten SSH. Details in [AGENTS.md](AGENTS.md).
 
 ## CLI
 

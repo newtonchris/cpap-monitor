@@ -45,9 +45,12 @@ heartbeat_interval_s = 30.0    # status file refresh (anti-silent-failure)
 
 [sound]
 # The local siren, played in a loop via sox `play` until the alarm clears.
-# Any loud mp3/wav. NOT shipped in the repo (mp3s are gitignored) — copy
-# your alarm track onto the Pi and point this at it.
-alarm_file = "/home/cnewton/cpap-monitor/sounds/alarm.mp3"
+# Default = the repo's shipped escalating siren (sounds/alarm.wav): starts mild
+# and ramps to a "nuclear-hazard" blare. WAV needs no extra sox codec, so it
+# works out of the box. Prefer your own? Point this at ANY mp3/wav that will
+# wake YOU (your *.mp3 files are gitignored — drop one on the Pi and aim here).
+# Regenerate/customize the default with scripts/make-siren.sh.
+alarm_file = "/home/cnewton/cpap-monitor/sounds/alarm.wav"
 
 
 # ---------------------------------------------------------------------

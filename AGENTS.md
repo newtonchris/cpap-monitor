@@ -88,6 +88,29 @@ Follow docs/DEPLOY.md exactly; short form: clone to
 `sudo scripts/install.sh`, fill `/etc/cpap-monitor/config.toml`, bring up
 the plug network, `check`, `test-alert`, arm, verify heartbeat.
 
+## Set up from a more powerful machine (recommended for low-RAM Pis)
+
+The reference hardware is a **Raspberry Pi 3B+ with ~1 GB RAM**. That's plenty
+to *run* the monitor (the loop is tiny), but **too memory-constrained to
+comfortably run a heavyweight AI coding assistant — e.g. Claude Code — on the Pi
+itself** while setting up. Don't bog the Pi down:
+
+* **Do the setup/config work from a separate, more powerful computer** and give
+  it **SSH access to the Pi** for the duration — either a **sudo-capable
+  account** or a **temporary root key**. All the heavy lifting (editing,
+  testing, tuning thresholds) happens off-box; the Pi just executes commands.
+* This repo was built exactly that way: the agent ran on a workstation and drove
+  the Pi over SSH via a dedicated, clearly-labeled temporary key in the Pi's
+  `/root/.ssh/authorized_keys`.
+* **Tear the access down when you're finished** — the Pi is long-lived and
+  physically accessible, so leave it no more open than you found it:
+  1. remove the temporary key line(s) from `/root/.ssh/authorized_keys` (and any
+     `~cnewton/.ssh/authorized_keys` you added);
+  2. remove any **passwordless-login / passwordless-sudo** drop-in created for
+     the agent (e.g. a `NOPASSWD` entry in `/etc/sudoers.d/`);
+  3. re-tighten sshd (key-only auth; consider disabling `rpcbind` and password
+     auth). See the repo's security-hardening notes.
+
 ## Field-discovered gotchas (hard-won; do not rediscover)
 
 * **The Pi hosts its own `cpap` Wi-Fi AP** for the plugs (hostapd/
