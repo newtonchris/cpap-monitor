@@ -1,4 +1,4 @@
-"""Local siren via sox `play` — the PRIMARY alarm channel.
+"""Local siren via pw-play (PipeWire), sox `play` fallback — the PRIMARY alarm channel.
 
 The siren loops until explicitly stopped: a player thread re-launches
 `play` each time the track ends, so a 3-minute mp3 still means a
@@ -18,6 +18,22 @@ import threading
 log = logging.getLogger("cpapmon.sound")
 
 
+def _player_argv(path):
+    """Command to play ONE pass of the alarm file.
+
+    Prefer `pw-play` (PipeWire): it reaches the session's default sink and
+    survives the USB speaker re-enumerating mid-alarm, which raw-ALSA sox
+    `play` does NOT — on this box `play` cannot even open a default device.
+    Fall back to sox `play` only if pw-play is missing.
+    """
+    import shutil as _sh
+    if _sh.which("pw-play"):
+        return ["pw-play", path]
+    if _sh.which("play"):
+        return ["play", "-q", path, "vol", "1.0"]
+    return None
+
+
 class AlarmSound:
     def __init__(self, alarm_file: str):
         self.alarm_file = alarm_file
@@ -34,9 +50,9 @@ class AlarmSound:
         with self._lock:
             if self.playing:
                 return
-            if shutil.which("play") is None:
-                log.critical("sox `play` not installed — NO LOCAL SIREN. "
-                             "apt install sox libsox-fmt-mp3")
+            if _player_argv(self.alarm_file) is None:
+                log.critical("no audio player (pw-play or sox `play`) found — "
+                             "NO LOCAL SIREN. apt install pipewire-bin or sox")
                 return
             self._stop.clear()
             self._thread = threading.Thread(target=self._loop, daemon=True)
@@ -55,7 +71,7 @@ class AlarmSound:
         while not self._stop.is_set():
             try:
                 self._proc = subprocess.Popen(
-                    ["play", "-q", self.alarm_file, "vol", "1.0"],
+                    _player_argv(self.alarm_file),
                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                 self._proc.wait()
             except Exception as exc:

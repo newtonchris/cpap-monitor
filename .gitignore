@@ -20,3 +20,7 @@ __pycache__/
 *.pyc
 .pytest_cache/
 .venv/
+
+# Runtime alarm: Jimmy Cliff + licensed Envato pulse, rebuilt by scripts/make-wakeup.sh
+sounds/wakeup.wav
+sounds/candidates/

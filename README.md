@@ -242,3 +242,26 @@ Pure-logic tests for the state machine; no hardware needed:
 ```bash
 pytest tests/
 ```
+
+## Sound output on this build (pw-play) and the wake-up track
+
+The siren plays through **`pw-play` (PipeWire)**, not raw-ALSA sox `play`. On this
+Pi `play` with no device argument cannot open a default ALSA device (dmix fails),
+so it errored silently; and the USB speaker (a Gembird Honk HK-5002) re-enumerates
+on its own, which raw ALSA can't ride out. `pw-play` targets the session's default
+sink (set to the USB speaker; `loginctl enable-linger cnewton` keeps PipeWire up at
+boot) and reconnects when the device returns. sox `play` remains a fallback.
+
+The runtime alarm is **`sounds/wakeup.wav`**, built by **`scripts/make-wakeup.sh`**:
+a Jimmy Cliff intro (the gentle nudge — fix the mask and you only ever hear that),
+then the Envato *Alarm Pulse* (item 44718) repeated until you wake. Both source
+tracks are copyrighted/licensed and stay on the Pi only (`*.mp3` is gitignored);
+the 88 MB wav is gitignored too. `/etc/cpap-monitor/config.toml` points `alarm_file`
+at it. Re-run `scripts/make-wakeup.sh` after swapping either mp3; `PULSE_REPEATS=N`
+controls how long the pulse runs.
+
+⚠️ Two caveats worth knowing: the Jimmy Cliff intro is the full track (~9 min) before
+the pulse, so a persistent failure takes that long to reach the loud part — shorten
+it by trimming the intro in `make-wakeup.sh` if you want the pulse sooner. And the
+USB speaker is a cheap self-resetting unit; for a safety alarm a powered speaker on
+the 3.5 mm jack, or a powered USB hub, would be more dependable.
