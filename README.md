@@ -268,14 +268,24 @@ the 3.5 mm jack, or a powered USB hub, would be more dependable.
 
 ## Snooze a break without the siren (power-cycle gesture)
 
-Need the bathroom at 3am? **Flick the CPAP power off and on a few times quickly**
-— three or more on/off transitions within ~12 seconds, each flick lasting about a
-second (the plug is polled once a second). The monitor **chirps twice** and
-suppresses the mask-off (NO_BREATH) alarm for **15 minutes** while you're up.
+Need the bathroom at 3am? Use the CPAP's own power button: **press Stop and hold
+~3 s, press Start and hold ~3 s, press Stop** — then leave it off for your break.
+That's three sustained transitions ending stopped; the monitor **chirps twice**
+and suppresses the mask-off (NO_BREATH) alarm for **15 minutes** while you're up.
 
-It is deliberately hard to defeat the alarm by accident: a single clean stop (one
-transition) or a one-off power blip (two) is *not* a gesture, so a genuine failure
-still sounds. The snooze **auto-expires** — if you fall back asleep without the
-mask on, it wakes you when the grace period ends — and **auto-clears** the instant
-the machine is running again. Runaway-blower and plug-unreachable alarms are never
-snoozable. Tune or disable it in `[thresholds]` (`snooze_s = 0` disables).
+**Why the holds, not quick flicks.** Pressing Stop doesn't cut the power — the
+machine sits in standby at **~3–4 W**, which is the *same wattage band as a normal
+breathing dip*. So the gesture can't be told from breathing by wattage; it's told
+by **duration**. A power level must be *held* for `snooze_gesture_debounce_s`
+(~3 s) to count as a real Stop or Start. This is the fix for the bug where
+ordinary breathing jitter across the 4.3 W line false-armed the snooze overnight
+and silently muted the alarm — short dips are now ignored.
+
+It is also deliberately **impossible to defeat the alarm by a passive failure**:
+the gesture requires the blower to actually *restart* between two stops (an on
+edge between two off edges), and a mask-off or dead machine only makes watts drop
+and stay down — one edge, never a gesture, so a genuine failure always sounds. The
+snooze **auto-expires** — if you fall back asleep without the mask on, it wakes
+you when the grace period ends — and **auto-clears** the instant the machine is
+running again. Runaway-blower and plug-unreachable alarms are never snoozable.
+Tune or disable it in `[thresholds]` (`snooze_s = 0` disables).

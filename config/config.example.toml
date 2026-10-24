@@ -40,16 +40,23 @@ alarm_auto_standby_s = 600     # if a NO_BREATH / CONNECTION_LOST alarm rings
                                # empty-room siren blaring all day after you get
                                # up). 0 = ring forever. RUNAWAY never stands down.
 
-# Snooze — take a short break (bathroom) without the siren. Flick the CPAP
-# power off/on a few times quickly (>= snooze_gesture_edges on/off transitions
-# within snooze_gesture_window_s); you hear two chirps and the NO_BREATH alarm
-# is suppressed for snooze_s. It auto-expires (fall back asleep unmasked and it
+# Snooze — take a short break (bathroom) without the siren. On the CPAP's own
+# button: press Stop and HOLD ~3 s, press Start and HOLD ~3 s, press Stop again
+# (>= snooze_gesture_edges sustained transitions within snooze_gesture_window_s,
+# ending stopped); you hear two chirps and the NO_BREATH alarm is suppressed for
+# snooze_s while you're up. It auto-expires (fall back asleep unmasked and it
 # still wakes you) and auto-clears the moment the machine runs again. RUNAWAY
-# and CONNECTION_LOST are NOT snoozable. Each flick must last ~1-2 s (the plug
-# is polled once a second). Set snooze_s = 0 to disable.
+# and CONNECTION_LOST are NOT snoozable. Set snooze_s = 0 to disable.
+#
+# Why the holds: pressing Stop leaves the machine in standby at ~3-4 W, the same
+# band as a breathing dip, so the gesture is detected by DURATION -- a level
+# must be held >= snooze_gesture_debounce_s to count. Short breath dips are
+# ignored (they used to false-arm the snooze overnight), and requiring the
+# blower to restart mid-gesture means a real failure can never look like one.
 snooze_s = 900                 # grace length in seconds (15 min); 0 disables
-snooze_gesture_edges = 3       # on/off power transitions needed to arm
-snooze_gesture_window_s = 12   # ...within this many seconds
+snooze_gesture_edges = 3       # sustained on/off transitions needed to arm
+snooze_gesture_window_s = 30   # ...within this many seconds
+snooze_gesture_debounce_s = 3  # each Stop/Start must be held this long
 
 
 [monitor]

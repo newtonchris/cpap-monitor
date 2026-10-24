@@ -100,16 +100,31 @@ class Thresholds:
     connection_timeout_s: float = 180.0   # unreachable-while-armed budget
     alarm_auto_standby_s: float = 600.0   # ring this long w/o recovery -> stand
                                           # down to silent SEARCHING (0 = never)
-    # Snooze: a deliberate power-cycle gesture on the plug (flick the CPAP
-    # off/on a few times) arms a bounded grace period that suppresses ONLY the
-    # NO_BREATH (machine-off) alarm -- for a short break without the siren. It
-    # auto-expires (fall back asleep unmasked and it still wakes you) and
-    # auto-clears when the machine runs again. RUNAWAY/CONNECTION_LOST are not
-    # suppressed. Detection is edge-count at the 1 Hz poll, so each flick must
-    # last ~1-2 s; that also makes an accidental single blip a non-gesture.
+    # Snooze: a deliberate Stop/Start power-cycle gesture on the CPAP arms a
+    # bounded grace period that suppresses ONLY the NO_BREATH (machine-off)
+    # alarm -- for a short break without the siren. Do it on the CPAP's own
+    # button: Stop (hold ~debounce_s), Start (hold ~debounce_s), Stop -- then
+    # take your break (leave it stopped). It auto-expires (fall back asleep
+    # unmasked and it still wakes you) and auto-clears when the machine runs
+    # again. RUNAWAY/CONNECTION_LOST are NEVER suppressed.
+    #
+    # Detection is by DURATION, not wattage. Pressing Stop leaves the machine in
+    # standby at ~3-4 W -- the SAME band as an ordinary breathing dip below
+    # activity_watt_limit -- so no wattage threshold can tell a deliberate Stop
+    # from breath jitter. Instead a power level is trusted only once it has been
+    # HELD for snooze_gesture_debounce_s, so a transient breath dip never counts
+    # (this is what used to false-arm the snooze while the owner slept). And the
+    # gesture requires an ON edge (a real blower restart) between two OFF edges,
+    # which a passive failure (mask off / machine dies: watts drop and STAY
+    # down) can never produce -- so a real emergency can never look like a
+    # snooze. Arming also requires the pattern to END in OFF, so the grace
+    # covers the break instead of being cleared by a still-running machine.
     snooze_s: float = 900.0               # grace length in seconds (0 disables)
-    snooze_gesture_edges: int = 3         # on/off transitions needed to arm
-    snooze_gesture_window_s: float = 12.0 # ...within this many seconds
+    snooze_gesture_edges: int = 3         # sustained on/off transitions to arm
+    snooze_gesture_window_s: float = 30.0 # ...within this many seconds
+    snooze_gesture_debounce_s: float = 3.0  # a level must be held at least this
+                                          # long to count as a real Stop/Start;
+                                          # shorter dips (breathing) are ignored.
 
     def validate(self) -> list[str]:
         problems = []
@@ -126,10 +141,13 @@ class Thresholds:
         if self.snooze_s < 0:
             problems.append("snooze_s must be >= 0 (0 disables)")
         if self.snooze_s > 0:
-            if self.snooze_gesture_edges < 2:
-                problems.append("snooze_gesture_edges must be >= 2")
+            if self.snooze_gesture_edges < 3:
+                problems.append("snooze_gesture_edges must be >= 3 "
+                                "(an on edge between two off edges)")
             if self.snooze_gesture_window_s <= 0:
                 problems.append("snooze_gesture_window_s must be > 0")
+            if self.snooze_gesture_debounce_s <= 0:
+                problems.append("snooze_gesture_debounce_s must be > 0")
         return problems
 
 
@@ -153,7 +171,9 @@ class Monitor:
     _unreachable_since: float | None = None
     _was_unreachable: bool = False
     _alarming_since: float | None = None
-    _prev_running: bool | None = None
+    _gesture_level: bool | None = None      # committed (debounced) power state
+    _cand_level: bool | None = None         # candidate level awaiting debounce
+    _cand_since: float | None = None        # when the candidate level began
     _edges: list[float] = field(default_factory=list)
     _snooze_until: float | None = None
 
@@ -177,8 +197,7 @@ class Monitor:
                                            watts=watts))
 
         # --- snooze: deliberate power-cycle gesture -------------------- #
-        running = watts > t.activity_watt_limit
-        if (self._track_gesture(now, running) and t.snooze_s > 0
+        if (self._track_gesture(now, watts) and t.snooze_s > 0
                 and self.state in (State.ARMED, State.ALARMING)):
             self._snooze_until = now + t.snooze_s
             self._edges.clear()
@@ -321,19 +340,39 @@ class Monitor:
         self._last_activity_at = now
         self._high_watt_since = None
 
-    def _track_gesture(self, now: float, running: bool) -> bool:
-        """Record on/off power transitions; return True the moment a
-        deliberate power-cycle gesture (>= snooze_gesture_edges transitions
-        within snooze_gesture_window_s) has just completed."""
+    def _track_gesture(self, now: float, watts: float) -> bool:
+        """Return True the instant a deliberate Stop/Start power-cycle gesture
+        completes: >= snooze_gesture_edges sustained on/off transitions within
+        snooze_gesture_window_s, ending with the machine OFF.
+
+        DURATION, not magnitude, is the signal. Pressing Stop drops the plug to
+        ~3-4 W standby -- the same band as a breathing dip below
+        activity_watt_limit -- so a power level is trusted only after it has
+        been held for snooze_gesture_debounce_s; a transient breath dip never
+        commits and so never adds an edge (this is the bug that false-armed the
+        snooze overnight). Requiring an ON edge (a real blower restart) between
+        OFF edges means a passive failure -- mask off, machine dies, watts drop
+        and STAY down -- can never be mistaken for the gesture. Ending OFF means
+        the grace period covers the break that follows rather than being
+        cleared by a still-running machine on the very next sample."""
         t = self.thresholds
         if t.snooze_s <= 0:
             return False
-        if self._prev_running is None:
-            self._prev_running = running
+        hi = watts > t.activity_watt_limit          # blower actually running?
+        if self._cand_level is None or hi != self._cand_level:
+            self._cand_level = hi                   # new candidate level
+            self._cand_since = now
+        committed = self._gesture_level
+        if (self._cand_since is not None
+                and now - self._cand_since >= t.snooze_gesture_debounce_s):
+            committed = self._cand_level            # held long enough -> trust it
+        if self._gesture_level is None:
+            self._gesture_level = committed         # establish baseline, no edge
             return False
-        if running != self._prev_running:
+        if committed is not None and committed != self._gesture_level:
             self._edges.append(now)
-            self._prev_running = running
+            self._gesture_level = committed
         cutoff = now - t.snooze_gesture_window_s
         self._edges = [e for e in self._edges if e >= cutoff]
-        return len(self._edges) >= t.snooze_gesture_edges
+        return (len(self._edges) >= t.snooze_gesture_edges
+                and self._gesture_level is False)   # must end OFF (break begins)
