@@ -18,6 +18,21 @@ import threading
 log = logging.getLogger("cpapmon.sound")
 
 
+def play_chirp(chirp_file, count=2):
+    """Play a short confirmation chirp `count` times (blocking). Best-effort:
+    a missing player or file just means no chirp -- never raises."""
+    import subprocess as _sp, time as _t
+    argv = _player_argv(chirp_file)
+    if argv is None:
+        return
+    for _ in range(max(1, count)):
+        try:
+            _sp.run(argv, stdout=_sp.DEVNULL, stderr=_sp.DEVNULL, timeout=5)
+        except Exception:
+            return
+        _t.sleep(0.12)
+
+
 def _player_argv(path):
     """Command to play ONE pass of the alarm file.
 

@@ -265,3 +265,17 @@ the pulse, so a persistent failure takes that long to reach the loud part — sh
 it by trimming the intro in `make-wakeup.sh` if you want the pulse sooner. And the
 USB speaker is a cheap self-resetting unit; for a safety alarm a powered speaker on
 the 3.5 mm jack, or a powered USB hub, would be more dependable.
+
+## Snooze a break without the siren (power-cycle gesture)
+
+Need the bathroom at 3am? **Flick the CPAP power off and on a few times quickly**
+— three or more on/off transitions within ~12 seconds, each flick lasting about a
+second (the plug is polled once a second). The monitor **chirps twice** and
+suppresses the mask-off (NO_BREATH) alarm for **15 minutes** while you're up.
+
+It is deliberately hard to defeat the alarm by accident: a single clean stop (one
+transition) or a one-off power blip (two) is *not* a gesture, so a genuine failure
+still sounds. The snooze **auto-expires** — if you fall back asleep without the
+mask on, it wakes you when the grace period ends — and **auto-clears** the instant
+the machine is running again. Runaway-blower and plug-unreachable alarms are never
+snoozable. Tune or disable it in `[thresholds]` (`snooze_s = 0` disables).

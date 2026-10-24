@@ -40,6 +40,17 @@ alarm_auto_standby_s = 600     # if a NO_BREATH / CONNECTION_LOST alarm rings
                                # empty-room siren blaring all day after you get
                                # up). 0 = ring forever. RUNAWAY never stands down.
 
+# Snooze — take a short break (bathroom) without the siren. Flick the CPAP
+# power off/on a few times quickly (>= snooze_gesture_edges on/off transitions
+# within snooze_gesture_window_s); you hear two chirps and the NO_BREATH alarm
+# is suppressed for snooze_s. It auto-expires (fall back asleep unmasked and it
+# still wakes you) and auto-clears the moment the machine runs again. RUNAWAY
+# and CONNECTION_LOST are NOT snoozable. Each flick must last ~1-2 s (the plug
+# is polled once a second). Set snooze_s = 0 to disable.
+snooze_s = 900                 # grace length in seconds (15 min); 0 disables
+snooze_gesture_edges = 3       # on/off power transitions needed to arm
+snooze_gesture_window_s = 12   # ...within this many seconds
+
 
 [monitor]
 poll_interval_s = 1.0          # wattage sample rate while reachable
@@ -50,13 +61,16 @@ heartbeat_interval_s = 30.0    # status file refresh (anti-silent-failure)
 
 
 [sound]
-# The local siren, played in a loop via sox `play` until the alarm clears.
+# The local siren, looped via pw-play (PipeWire; sox `play` fallback) until the
+# alarm clears.
 # Default = the repo's shipped escalating siren (sounds/alarm.wav): starts mild
 # and ramps to a "nuclear-hazard" blare. WAV needs no extra sox codec, so it
 # works out of the box. Prefer your own? Point this at ANY mp3/wav that will
 # wake YOU (your *.mp3 files are gitignored — drop one on the Pi and aim here).
 # Regenerate/customize the default with scripts/make-siren.sh.
 alarm_file = "/home/cnewton/cpap-monitor/sounds/alarm.wav"
+# Short chirp played when a snooze is armed. "" uses sounds/chirp.wav.
+chirp_file = ""
 
 
 # ---------------------------------------------------------------------

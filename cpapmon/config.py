@@ -47,7 +47,8 @@ class MonitorConfig:
 
 @dataclass(frozen=True)
 class SoundConfig:
-    alarm_file: str = ""    # mp3/wav played (looped) via sox `play`
+    alarm_file: str = ""    # mp3/wav played (looped) via pw-play / sox `play`
+    chirp_file: str = ""    # snooze-armed confirmation chirp; "" -> sounds/chirp.wav
 
 
 @dataclass(frozen=True)

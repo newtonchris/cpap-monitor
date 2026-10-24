@@ -77,6 +77,8 @@ class EventKind(enum.Enum):
     ALARM_STOP = "ALARM_STOP"          # safe/stand-down, silence siren
     UNREACHABLE = "UNREACHABLE"        # plug missed a poll (informational)
     RECONNECTED = "RECONNECTED"        # plug answered again after misses
+    SNOOZE_ARMED = "SNOOZE_ARMED"      # power-cycle gesture -> grace begins
+    SNOOZE_EXPIRED = "SNOOZE_EXPIRED"  # grace ended; normal logic resumes
 
 
 @dataclass(frozen=True)
@@ -98,6 +100,16 @@ class Thresholds:
     connection_timeout_s: float = 180.0   # unreachable-while-armed budget
     alarm_auto_standby_s: float = 600.0   # ring this long w/o recovery -> stand
                                           # down to silent SEARCHING (0 = never)
+    # Snooze: a deliberate power-cycle gesture on the plug (flick the CPAP
+    # off/on a few times) arms a bounded grace period that suppresses ONLY the
+    # NO_BREATH (machine-off) alarm -- for a short break without the siren. It
+    # auto-expires (fall back asleep unmasked and it still wakes you) and
+    # auto-clears when the machine runs again. RUNAWAY/CONNECTION_LOST are not
+    # suppressed. Detection is edge-count at the 1 Hz poll, so each flick must
+    # last ~1-2 s; that also makes an accidental single blip a non-gesture.
+    snooze_s: float = 900.0               # grace length in seconds (0 disables)
+    snooze_gesture_edges: int = 3         # on/off transitions needed to arm
+    snooze_gesture_window_s: float = 12.0 # ...within this many seconds
 
     def validate(self) -> list[str]:
         problems = []
@@ -111,6 +123,13 @@ class Thresholds:
                 problems.append(f"{name} must be > 0")
         if self.alarm_auto_standby_s < 0:
             problems.append("alarm_auto_standby_s must be >= 0 (0 disables)")
+        if self.snooze_s < 0:
+            problems.append("snooze_s must be >= 0 (0 disables)")
+        if self.snooze_s > 0:
+            if self.snooze_gesture_edges < 2:
+                problems.append("snooze_gesture_edges must be >= 2")
+            if self.snooze_gesture_window_s <= 0:
+                problems.append("snooze_gesture_window_s must be > 0")
         return problems
 
 
@@ -134,6 +153,9 @@ class Monitor:
     _unreachable_since: float | None = None
     _was_unreachable: bool = False
     _alarming_since: float | None = None
+    _prev_running: bool | None = None
+    _edges: list[float] = field(default_factory=list)
+    _snooze_until: float | None = None
 
     # ------------------------------------------------------------------ #
 
@@ -154,6 +176,21 @@ class Monitor:
             events.append(self._stop_alarm(now, "plug reachable again",
                                            watts=watts))
 
+        # --- snooze: deliberate power-cycle gesture -------------------- #
+        running = watts > t.activity_watt_limit
+        if (self._track_gesture(now, running) and t.snooze_s > 0
+                and self.state in (State.ARMED, State.ALARMING)):
+            self._snooze_until = now + t.snooze_s
+            self._edges.clear()
+            events.append(Event(
+                EventKind.SNOOZE_ARMED, watts=watts,
+                detail=f"power-cycle gesture -- suppressing no-breath alarm "
+                       f"for {t.snooze_s:.0f}s"))
+            if (self.state is State.ALARMING
+                    and self.alarm_reason is AlarmReason.NO_BREATH):
+                events.append(self._stop_alarm(
+                    now, "snoozed by power-cycle gesture", watts=watts))
+
         # ARM only once the machine is actually RUNNING. A reachable-but-idle
         # plug (machine off / standby) stays in silent SEARCHING — no alarm.
         if self.state is State.SEARCHING:
@@ -167,6 +204,9 @@ class Monitor:
         # --- ARMED or ALARMING: track activity / runaway windows ------- #
         if watts > t.activity_watt_limit:
             self._last_activity_at = now
+            if self._snooze_until is not None:
+                self._snooze_until = None   # machine running again -> end snooze
+                self._edges.clear()
         if self._last_activity_at is None:
             self._last_activity_at = now
 
@@ -179,10 +219,16 @@ class Monitor:
         idle_s = now - self._last_activity_at
         high_s = (now - self._high_watt_since) if self._high_watt_since else 0.0
 
+        # Snooze window ended -> resume normal alarm evaluation this tick.
+        if self._snooze_until is not None and now >= self._snooze_until:
+            self._snooze_until = None
+            events.append(Event(EventKind.SNOOZE_EXPIRED, watts=watts,
+                                detail="snooze ended"))
+
         # --- trigger decision ------------------------------------------ #
         reason: AlarmReason | None = None
         detail = ""
-        if idle_s > t.no_activity_timeout_s:
+        if idle_s > t.no_activity_timeout_s and self._snooze_until is None:
             reason = AlarmReason.NO_BREATH
             detail = f"watts <= {t.activity_watt_limit} for {idle_s:.0f}s"
         elif high_s > t.high_watt_timeout_s:
@@ -274,3 +320,20 @@ class Monitor:
     def _reset_timers(self, now: float) -> None:
         self._last_activity_at = now
         self._high_watt_since = None
+
+    def _track_gesture(self, now: float, running: bool) -> bool:
+        """Record on/off power transitions; return True the moment a
+        deliberate power-cycle gesture (>= snooze_gesture_edges transitions
+        within snooze_gesture_window_s) has just completed."""
+        t = self.thresholds
+        if t.snooze_s <= 0:
+            return False
+        if self._prev_running is None:
+            self._prev_running = running
+            return False
+        if running != self._prev_running:
+            self._edges.append(now)
+            self._prev_running = running
+        cutoff = now - t.snooze_gesture_window_s
+        self._edges = [e for e in self._edges if e >= cutoff]
+        return len(self._edges) >= t.snooze_gesture_edges

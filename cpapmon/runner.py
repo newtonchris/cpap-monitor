@@ -15,7 +15,7 @@ from .backends.base import PlugUnreachable
 from .config import AppConfig
 from .heartbeat import Heartbeat
 from .notify import Notifier
-from .sound import AlarmSound
+from .sound import AlarmSound, play_chirp
 from .state import EventKind, Monitor, State
 
 log = logging.getLogger("cpapmon.runner")
@@ -27,6 +27,7 @@ class Runner:
         self.backend = make_backend(cfg)
         self.monitor = Monitor(thresholds=cfg.thresholds)
         self.sound = AlarmSound(cfg.sound.alarm_file)
+        self._chirp_file = cfg.sound.chirp_file or "sounds/chirp.wav"
         self.notifier = Notifier(cfg.pushover)
         self.heartbeat = Heartbeat(cfg.heartbeat_path(),
                                    cfg.monitor.heartbeat_interval_s)
@@ -107,6 +108,16 @@ class Runner:
                                 force=True)
             self.notifier.notify("Alarm cleared",
                                  f"{reason}: {event.detail}")
+
+        elif kind is EventKind.SNOOZE_ARMED:
+            log.warning("SNOOZE armed -- %s", event.detail)
+            play_chirp(self._chirp_file, 2)
+            self.heartbeat.beat(self.monitor.state.value, event.watts,
+                                force=True)
+            self.notifier.notify("Snoozed", event.detail or "grace period")
+
+        elif kind is EventKind.SNOOZE_EXPIRED:
+            log.warning("SNOOZE expired -- normal alarm logic resumes")
 
         elif kind is EventKind.UNREACHABLE:
             log.warning("plug missed a poll; retrying every %ss "
