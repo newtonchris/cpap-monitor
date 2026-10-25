@@ -252,19 +252,29 @@ on its own, which raw ALSA can't ride out. `pw-play` targets the session's defau
 sink (set to the USB speaker; `loginctl enable-linger cnewton` keeps PipeWire up at
 boot) and reconnects when the device returns. sox `play` remains a fallback.
 
-The runtime alarm is **`sounds/wakeup.wav`**, built by **`scripts/make-wakeup.sh`**:
-a Jimmy Cliff intro (the gentle nudge — fix the mask and you only ever hear that),
-then the Envato *Alarm Pulse* (item 44718) repeated until you wake. Both source
-tracks are copyrighted/licensed and stay on the Pi only (`*.mp3` is gitignored);
-the 88 MB wav is gitignored too. `/etc/cpap-monitor/config.toml` points `alarm_file`
-at it. Re-run `scripts/make-wakeup.sh` after swapping either mp3; `PULSE_REPEATS=N`
-controls how long the pulse runs.
+The runtime alarm is built by **`scripts/make-wakeup.sh`** in **two parts**, and
+the player treats them differently (see `AlarmSound` in `cpapmon/sound.py`):
 
-⚠️ Two caveats worth knowing: the Jimmy Cliff intro is the full track (~9 min) before
-the pulse, so a persistent failure takes that long to reach the loud part — shorten
-it by trimming the intro in `make-wakeup.sh` if you want the pulse sooner. And the
-USB speaker is a cheap self-resetting unit; for a safety alarm a powered speaker on
-the 3.5 mm jack, or a powered USB hub, would be more dependable.
+* **`sounds/wakeup-intro.wav`** — the gentle nudge, played **once**. A short
+  (~30 s by default) Jimmy Cliff clip: fix the mask during it and you only ever
+  hear that.
+* **`sounds/wakeup-alarm.wav`** — the wake-up, **looped forever** until the alarm
+  clears. A ~10-minute bed of **10 escalating alarms**: the licensed Envato
+  *Alarm Pulse* (item 44718) first, then 9 progressively heavier/gnarlier alarms
+  synthesized by `sox` at build time. Because the intro is not in the loop, the
+  song never interrupts the alarms again — they just cycle and keep hammering.
+
+`/etc/cpap-monitor/config.toml` points `alarm_file` at the alarm bed and
+`intro_file` at the nudge. Only the Jimmy Cliff and Envato **mp3s** are
+copyrighted — they stay on the Pi (`*.mp3` is gitignored); the built wavs are
+gitignored too. Re-run `scripts/make-wakeup.sh` after swapping either mp3.
+Tunables: `SEG_SECS` (seconds per alarm; 10 of them ≈ total minutes) and
+`INTRO_SECS` (nudge length; `INTRO_SECS=full` plays the whole ~9-min song first,
+at the cost of delaying the real alarm that long).
+
+⚠️ The USB speaker (a Gembird Honk HK-5002) is a cheap self-resetting unit; for a
+safety alarm a powered speaker on the 3.5 mm jack, or a powered USB hub, would be
+more dependable.
 
 ## Snooze a break without the siren (power-cycle gesture)
 

@@ -68,14 +68,21 @@ heartbeat_interval_s = 30.0    # status file refresh (anti-silent-failure)
 
 
 [sound]
-# The local siren, looped via pw-play (PipeWire; sox `play` fallback) until the
-# alarm clears.
-# Default = the repo's shipped escalating siren (sounds/alarm.wav): starts mild
-# and ramps to a "nuclear-hazard" blare. WAV needs no extra sox codec, so it
-# works out of the box. Prefer your own? Point this at ANY mp3/wav that will
-# wake YOU (your *.mp3 files are gitignored — drop one on the Pi and aim here).
-# Regenerate/customize the default with scripts/make-siren.sh.
-alarm_file = "/home/cnewton/cpap-monitor/sounds/alarm.wav"
+# The wake-up audio. alarm_file is LOOPED via pw-play (PipeWire; sox `play`
+# fallback) until the alarm clears -- this is what must wake YOU, so make it
+# long and relentless. intro_file is optional and plays exactly ONCE before the
+# loop (a gentle nudge, e.g. a song): fix the mask during the intro and you only
+# ever hear that; ignore it and the alarm bed loops forever. The intro is NOT in
+# the loop, so it never interrupts the alarms again.
+#
+# This build uses scripts/make-wakeup.sh, which produces two files: a short
+# Jimmy Cliff nudge (wakeup-intro.wav) and a ~10-minute bed of 10 escalating
+# alarms (wakeup-alarm.wav) -- the Envato "Alarm Pulse" first, then 9 heavier
+# synthesized variants, cycling. The repo also ships a self-contained escalating
+# siren (sounds/alarm.wav, from scripts/make-siren.sh) if you want no intro and
+# no external mp3s. Your *.mp3 files and the built wavs are gitignored.
+alarm_file = "/home/cnewton/cpap-monitor/sounds/wakeup-alarm.wav"
+intro_file = "/home/cnewton/cpap-monitor/sounds/wakeup-intro.wav"   # "" = no intro
 # Short chirp played when a snooze is armed. "" uses sounds/chirp.wav.
 chirp_file = ""
 

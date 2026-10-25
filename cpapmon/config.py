@@ -47,7 +47,10 @@ class MonitorConfig:
 
 @dataclass(frozen=True)
 class SoundConfig:
-    alarm_file: str = ""    # mp3/wav played (looped) via pw-play / sox `play`
+    alarm_file: str = ""    # mp3/wav LOOPED forever via pw-play / sox `play` -- the
+                            # escalating wake bed; this is what hammers until you wake
+    intro_file: str = ""    # optional: played ONCE before the loop (the gentle nudge,
+                            # e.g. a song). "" -> straight to the looping alarm bed.
     chirp_file: str = ""    # snooze-armed confirmation chirp; "" -> sounds/chirp.wav
 
 
@@ -90,6 +93,9 @@ class AppConfig:
         elif not Path(self.sound.alarm_file).is_file():
             problems.append(
                 f"[sound] alarm_file not found: {self.sound.alarm_file}")
+        if self.sound.intro_file and not Path(self.sound.intro_file).is_file():
+            problems.append(
+                f"[sound] intro_file not found: {self.sound.intro_file}")
 
         if self.pushover.enabled:
             for key in ("token", "user_key"):

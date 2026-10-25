@@ -1,8 +1,11 @@
 """Local siren via pw-play (PipeWire), sox `play` fallback — the PRIMARY alarm channel.
 
-The siren loops until explicitly stopped: a player thread re-launches
-`play` each time the track ends, so a 3-minute mp3 still means a
-continuous alarm. stop() kills the current process and ends the loop.
+The siren loops until explicitly stopped: a player thread optionally plays
+an intro file ONCE (the gentle nudge, e.g. a song), then re-launches the
+alarm file each time it ends, so even a short bed means a continuous,
+never-ending alarm. The intro is NOT part of the loop -- it is heard once,
+then only the escalating alarm bed repeats. stop() kills the current
+process and ends the loop.
 
 Requires the `sox` package with mp3 support (`sox` + `libsox-fmt-mp3`
 on Raspberry Pi OS / Debian).
@@ -50,8 +53,9 @@ def _player_argv(path):
 
 
 class AlarmSound:
-    def __init__(self, alarm_file: str):
+    def __init__(self, alarm_file: str, intro_file: str = ""):
         self.alarm_file = alarm_file
+        self.intro_file = intro_file
         self._proc: subprocess.Popen | None = None
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
@@ -83,6 +87,21 @@ class AlarmSound:
         log.info("siren stopped")
 
     def _loop(self) -> None:
+        # Intro (the gentle nudge) plays exactly ONCE, best-effort: if it is
+        # unset, missing, or fails, we fall straight through to the alarm bed
+        # -- the siren must never be blocked by the intro.
+        if self.intro_file and not self._stop.is_set():
+            argv = _player_argv(self.intro_file)
+            if argv is not None:
+                try:
+                    self._proc = subprocess.Popen(
+                        argv, stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL)
+                    self._proc.wait()
+                except Exception as exc:
+                    log.error("siren intro error (continuing to alarm): %s", exc)
+
+        # The alarm bed loops forever until stop() -- this is the wake-up.
         while not self._stop.is_set():
             try:
                 self._proc = subprocess.Popen(
