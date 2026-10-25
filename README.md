@@ -256,8 +256,8 @@ The runtime alarm is built by **`scripts/make-wakeup.sh`** in **two parts**, and
 the player treats them differently (see `AlarmSound` in `cpapmon/sound.py`):
 
 * **`sounds/wakeup-intro.wav`** — the gentle nudge, played **once**. A short
-  (~30 s by default) Jimmy Cliff clip: fix the mask during it and you only ever
-  hear that.
+  Jimmy Cliff track (the full song by default): fix the mask during it and you
+  only ever hear that.
 * **`sounds/wakeup-alarm.wav`** — the wake-up, **looped forever** until the alarm
   clears. A ~10-minute bed of **10 escalating alarms**: the licensed Envato
   *Alarm Pulse* (item 44718) first, then 9 progressively heavier/gnarlier alarms
@@ -269,8 +269,8 @@ the player treats them differently (see `AlarmSound` in `cpapmon/sound.py`):
 copyrighted — they stay on the Pi (`*.mp3` is gitignored); the built wavs are
 gitignored too. Re-run `scripts/make-wakeup.sh` after swapping either mp3.
 Tunables: `SEG_SECS` (seconds per alarm; 10 of them ≈ total minutes) and
-`INTRO_SECS` (nudge length; `INTRO_SECS=full` plays the whole ~9-min song first,
-at the cost of delaying the real alarm that long).
+`INTRO_SECS` (intro length; the full ~9-min song by default — set e.g.
+`INTRO_SECS=30` to trim it so the real alarm comes sooner).
 
 ⚠️ The USB speaker (a Gembird Honk HK-5002) is a cheap self-resetting unit; for a
 safety alarm a powered speaker on the 3.5 mm jack, or a powered USB hub, would be

@@ -75,8 +75,8 @@ heartbeat_interval_s = 30.0    # status file refresh (anti-silent-failure)
 # ever hear that; ignore it and the alarm bed loops forever. The intro is NOT in
 # the loop, so it never interrupts the alarms again.
 #
-# This build uses scripts/make-wakeup.sh, which produces two files: a short
-# Jimmy Cliff nudge (wakeup-intro.wav) and a ~10-minute bed of 10 escalating
+# This build uses scripts/make-wakeup.sh, which produces two files: the Jimmy
+# Cliff intro (wakeup-intro.wav, the full song by default) and a ~10-minute bed of 10 escalating
 # alarms (wakeup-alarm.wav) -- the Envato "Alarm Pulse" first, then 9 heavier
 # synthesized variants, cycling. The repo also ships a self-contained escalating
 # siren (sounds/alarm.wav, from scripts/make-siren.sh) if you want no intro and

@@ -24,17 +24,16 @@
 #
 # Tunables (env):
 #   SEG_SECS   (default 60) seconds per alarm; 10 alarms => ~10 min of alarms.
-#   INTRO_SECS (default 30) seconds of the Jimmy Cliff nudge before the alarms.
-#              Set INTRO_SECS=full (or 0) to play the WHOLE ~9-min song first --
-#              but note that delays the real alarm by that long, which fights the
-#              whole point (waking you). Short nudge is the safer default.
+#   INTRO_SECS (default full) length of the Jimmy Cliff intro before the alarms.
+#              Default plays the WHOLE ~9-min song (owner's choice). Set a number
+#              (e.g. INTRO_SECS=30) to trim it so the real alarm comes sooner.
 set -euo pipefail
 command -v sox >/dev/null || { echo "need sox (+libsox-fmt-mp3)"; exit 1; }
 cd "$(dirname "$0")/.."
 
 R=44100
 SEG_SECS="${SEG_SECS:-60}"                 # seconds per alarm; 10 => ~10 min bed
-INTRO_SECS="${INTRO_SECS:-30}"             # seconds of the song nudge; full|0 = whole song
+INTRO_SECS="${INTRO_SECS:-full}"           # song nudge length; full|0 = whole song (default); or N seconds
 JIMMY="/home/pi/plug-method/jimmy-cliff-american-plan.mp3"
 PULSE="sounds/alarm-pulse.mp3"
 INTRO="sounds/wakeup-intro.wav"
