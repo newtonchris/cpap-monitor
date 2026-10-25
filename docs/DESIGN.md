@@ -132,6 +132,69 @@ The 78-day silence is the enemy. Defence in depth, in order of maturity:
   useful; if revived they stay local/gitignored (health data never
   enters the public repo).
 
+## Snooze — pausing for a break without defeating the alarm
+
+A sleeper who gets up for 10–15 minutes (bathroom) wants to stop the siren
+from firing while the mask is off — *without* a mechanism that could also mute
+a real failure. Snooze is a bounded grace (default 15 min, `snooze_s`) that
+suppresses **only NO_BREATH**; RUNAWAY and CONNECTION_LOST still fire. It
+auto-expires (fall back asleep unmasked and it still wakes you) and auto-clears
+the instant the machine runs again.
+
+Intent is signalled by a gesture on the CPAP's **own Stop/Start button**:
+**Stop (hold ~3 s) → Start (hold ~3 s) → Stop**, ending stopped — then take the
+break. Implemented in `state.py::Monitor._track_gesture`.
+
+### Why the gesture is detected by DURATION, not wattage
+
+Measured on the reference ResMed, through the plug:
+
+| State | Plug draw |
+|---|---|
+| Running (blower on, breathing) | ~11 W, modulating |
+| **Stopped at the machine's own button** | **steady 3–4 W (standby)** |
+| Unplugged at the wall outlet | ~0 W |
+| `activity_watt_limit` (the no-breath line) | 4.3 W |
+
+Pressing **Stop does not cut power** — the machine sits in standby at **3–4 W**,
+which is in the *same sub-4.3 W band as an ordinary breathing dip*. So no
+wattage threshold can separate "the user pressed Stop" from "the user exhaled":
+they are the same magnitude. The only thing that distinguishes them is **time** —
+a real Stop is *held*; a breath dip is a transient while the blower keeps running.
+
+So the detector **debounces**: a power level is trusted only once it has been
+*held* for `snooze_gesture_debounce_s` (default 3 s). `snooze_gesture_edges`
+(default 3) sustained transitions within `snooze_gesture_window_s` (default 30 s),
+ending OFF, arm the snooze. Two properties keep it safe:
+
+* **A passive failure can never look like the gesture.** It requires an ON edge —
+  a real blower *restart* — between two OFF edges. A mask-off or dead machine only
+  makes watts drop and *stay* down: one edge, never three, so a genuine emergency
+  always sounds. This upholds the "bias conservative" rule — the gesture can only
+  ever *fail to arm* (annoying), never *falsely arm* on a failure (dangerous).
+* **It arms only when ending OFF**, so the grace covers the break that follows
+  instead of being cleared by a still-running machine on the very next sample.
+
+### Incident: the first snooze design false-armed overnight (2026-10-24)
+
+The first implementation defined a power edge as *any* crossing of
+`activity_watt_limit` (4.3 W). Because normal breathing modulation dips below
+4.3 W for a sample now and then, the detector occasionally saw three "edges"
+inside its window and **armed the snooze on its own** — heard by the owner as the
+two-chirp confirmation *while asleep*. A false snooze silences NO_BREATH for up to
+15 minutes: the alarm was being muted mid-sleep — the exact silent-failure class
+this whole project exists to prevent.
+
+Root cause was an assumption that "off" meant ~0 W (an unplug). It does not: the
+owner pauses with the machine's **Stop button**, which reads **3–4 W**, inside the
+breath-dip band. (A brief hysteresis attempt — a separate low "off" floor — was
+written then discarded for the same reason: standby and breath dips share a
+wattage band, so only duration separates them.) The fix is the duration-based
+detector above. The regression test is
+`tests/test_snooze.py::test_breathing_jitter_does_not_arm` — single-sample dips
+must never arm — alongside `test_single_stop_is_not_a_gesture` (a real failure is
+one sustained edge and still alarms).
+
 ## Non-goals
 
 * Not a medical device; supplements, never replaces, clinical equipment.

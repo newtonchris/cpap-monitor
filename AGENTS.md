@@ -112,6 +112,35 @@ itself** while setting up. Don't bog the Pi down:
   3. re-tighten sshd (key-only auth; consider disabling `rpcbind` and password
      auth). See the repo's security-hardening notes.
 
+## Deploying to a Pi that has no internet (the live rig)
+
+The live device is a Pi (hostname `cpap1`) set up and updated from a separate
+workstation over a **direct Ethernet crossover** cable — not the plug AP, not the
+house LAN. Facts worth not re-discovering:
+
+* **The Pi has no route to the internet / GitHub.** Over the crossover it can
+  reach only the workstation. So the git flow is: edit + commit on the
+  workstation's clone, `git push` to GitHub *from the workstation*, then deploy to
+  the Pi over the crossover (next bullet) — never `git pull` on the Pi.
+* **Update the Pi's live checkout without GitHub.** The Pi's working clone at
+  `/home/cnewton/cpap-monitor` has `git config receive.denyCurrentBranch
+  updateInstead`, so a plain `git push <cnewton@pi>:/home/cnewton/cpap-monitor
+  main:main` from the workstation updates the working tree *in place* to the exact
+  same commit (keep the Pi's tree clean or the push is refused). Then on the Pi:
+  `sudo systemctl restart cpap-monitor` and confirm it returns SEARCHING→ARMED
+  with a fresh heartbeat (prime safety rule 1).
+* **Crossover down?** NetworkManager has no IPv4LL fallback; the link rides a
+  `shared`-mode connection (`crossover-cpap1`) so the workstation runs dnsmasq
+  (workstation `10.42.0.1`, Pi leases `10.42.0.136`). If the workstation NIC shows
+  `carrier 0` / NM "unavailable" (cable knocked), `nmcli connection up
+  crossover-cpap1` and the Pi re-requests DHCP once the link returns.
+* Access to the Pi is by the operator's own credentials, held **off** the repo
+  (secrets rule 2). This path leaves no standing temp key to tear down, but the
+  teardown discipline for any key/NOPASSWD you *do* add still applies.
+* **No pytest on the Pi.** `tests/test_snooze.py` runs as a plain script
+  (`PYTHONPATH=. python3 tests/test_snooze.py`) precisely so the state-machine
+  tests can be verified on the device itself after a deploy.
+
 ## Field-discovered gotchas (hard-won; do not rediscover)
 
 * **The Pi hosts its own `cpap` Wi-Fi AP** for the plugs (hostapd/
