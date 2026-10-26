@@ -195,6 +195,27 @@ detector above. The regression test is
 must never arm — alongside `test_single_stop_is_not_a_gesture` (a real failure is
 one sustained edge and still alarms).
 
+## Wake-up audio: intro once, bed looped — and the auto-standby trap
+
+The siren is two files. `intro_file` plays **exactly once** (a full Jimmy Cliff
+track — fix the mask during it and that's all you hear); `alarm_file` is a
+~10-minute bed of 10 escalating alarms that **loops forever** after the intro.
+Splitting them fixed the old single-file design where the song replayed on every
+loop and the alarms only got ~10 s before the song started over.
+
+**The trap (hit 2026-10-26):** the intro plays *inside* the ALARMING state, and
+`alarm_auto_standby_s` is timed from when ALARMING began — so the intro counts
+against it. With the default `alarm_auto_standby_s = 600` and the full ~551 s
+song, only ~49 s of the escalating bed ever played before the monitor stood down
+to silent standby. Symptom: "the 10 minutes of escalating alarms did not work."
+It was not an audio bug — the alarms were simply being cut off.
+
+**Rule:** `alarm_auto_standby_s` must cover `intro length + how long you want the
+bed to ring after it`. Live config now uses **1200 s** (full song + ~10.8 min of
+bed). This coupling is documented at the `alarm_auto_standby_s` line in
+`config/config.example.toml` so a reinstall can't silently reintroduce it. If you
+shorten or drop the intro, the window just becomes generous (the bed loops).
+
 ## Non-goals
 
 * Not a medical device; supplements, never replaces, clinical equipment.

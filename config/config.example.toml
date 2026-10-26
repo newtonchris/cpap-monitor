@@ -34,11 +34,17 @@ high_watt_limit = 18.5         # above this = runaway blower
 high_watt_timeout_s = 60       # sustained high draw this long => RUNAWAY
 connection_timeout_s = 180     # plug unreachable this long (once armed)
                                # => CONNECTION_LOST alarm
-alarm_auto_standby_s = 600     # if a NO_BREATH / CONNECTION_LOST alarm rings
+alarm_auto_standby_s = 1200    # if a NO_BREATH / CONNECTION_LOST alarm rings
                                # this long with no recovery, stand down to
                                # silent standby and wait to re-arm (stops an
                                # empty-room siren blaring all day after you get
                                # up). 0 = ring forever. RUNAWAY never stands down.
+                               # ⚠️ The intro_file plays INSIDE this window, so
+                               # this must cover the intro + however long you want
+                               # the alarm bed to ring AFTER it. The full Jimmy
+                               # Cliff intro is ~551 s, so 600 left only ~49 s of
+                               # alarm bed before standing down (the alarms barely
+                               # played). 1200 = full song + ~10.8 min of bed.
 
 # Snooze — take a short break (bathroom) without the siren. On the CPAP's own
 # button: press Stop and HOLD ~3 s, press Start and HOLD ~3 s, press Stop again
