@@ -26,7 +26,8 @@ class Runner:
         self.cfg = cfg
         self.backend = make_backend(cfg)
         self.monitor = Monitor(thresholds=cfg.thresholds)
-        self.sound = AlarmSound(cfg.sound.alarm_file, cfg.sound.intro_file)
+        self.sound = AlarmSound(cfg.sound.alarm_file, cfg.sound.intro_file,
+                                cfg.sound.alarm_ramp_file)
         self._chirp_file = cfg.sound.chirp_file or "sounds/chirp.wav"
         self.notifier = Notifier(cfg.pushover)
         self.heartbeat = Heartbeat(cfg.heartbeat_path(),

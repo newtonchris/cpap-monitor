@@ -87,8 +87,16 @@ heartbeat_interval_s = 30.0    # status file refresh (anti-silent-failure)
 # synthesized variants, cycling. The repo also ships a self-contained escalating
 # siren (sounds/alarm.wav, from scripts/make-siren.sh) if you want no intro and
 # no external mp3s. Your *.mp3 files and the built wavs are gitignored.
+# Wake-up ramp (make-wakeup.sh, INTRO_FADE_SECS, default 180 s): the audio starts
+# at 0% volume and ramps to full TWICE -- once over the first 3 min of the Jimmy
+# Cliff intro, then again over the first 3 min of the alarm bed. intro_file and
+# alarm_ramp_file are the two faded "played once" files; alarm_file is the full-
+# volume bed that loops forever after them (no silence gaps on each loop). The
+# fade is baked into the WAVs, so it is relative to the device's output volume.
+# alarm_ramp_file is optional -- "" plays the looping bed straight at full volume.
 alarm_file = "/home/cnewton/cpap-monitor/sounds/wakeup-alarm.wav"
 intro_file = "/home/cnewton/cpap-monitor/sounds/wakeup-intro.wav"   # "" = no intro
+alarm_ramp_file = "/home/cnewton/cpap-monitor/sounds/wakeup-alarm-ramp.wav"  # "" = no bed ramp
 # Short chirp played when a snooze is armed. "" uses sounds/chirp.wav.
 chirp_file = ""
 

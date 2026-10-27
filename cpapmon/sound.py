@@ -53,9 +53,11 @@ def _player_argv(path):
 
 
 class AlarmSound:
-    def __init__(self, alarm_file: str, intro_file: str = ""):
+    def __init__(self, alarm_file: str, intro_file: str = "",
+                 ramp_file: str = ""):
         self.alarm_file = alarm_file
         self.intro_file = intro_file
+        self.ramp_file = ramp_file
         self._proc: subprocess.Popen | None = None
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
@@ -87,19 +89,24 @@ class AlarmSound:
         log.info("siren stopped")
 
     def _loop(self) -> None:
-        # Intro (the gentle nudge) plays exactly ONCE, best-effort: if it is
-        # unset, missing, or fails, we fall straight through to the alarm bed
-        # -- the siren must never be blocked by the intro.
-        if self.intro_file and not self._stop.is_set():
-            argv = _player_argv(self.intro_file)
-            if argv is not None:
-                try:
-                    self._proc = subprocess.Popen(
-                        argv, stdout=subprocess.DEVNULL,
-                        stderr=subprocess.DEVNULL)
-                    self._proc.wait()
-                except Exception as exc:
-                    log.error("siren intro error (continuing to alarm): %s", exc)
+        # Prelude files play exactly ONCE each, in order, before the loop:
+        #   1. intro_file -- the gentle nudge (a song), faded up over its start
+        #   2. ramp_file  -- a faded-in FIRST PASS of the alarm bed, so the
+        #      alarms themselves ramp 0->100% once before the loop runs at full
+        # Both are best-effort: if one is unset, missing, or fails, we fall
+        # straight through -- the siren must never be blocked by a prelude.
+        for label, path in (("intro", self.intro_file), ("ramp", self.ramp_file)):
+            if not path or self._stop.is_set():
+                continue
+            argv = _player_argv(path)
+            if argv is None:
+                continue
+            try:
+                self._proc = subprocess.Popen(
+                    argv, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                self._proc.wait()
+            except Exception as exc:
+                log.error("siren %s error (continuing to alarm): %s", label, exc)
 
         # The alarm bed loops forever until stop() -- this is the wake-up.
         while not self._stop.is_set():

@@ -197,11 +197,32 @@ one sustained edge and still alarms).
 
 ## Wake-up audio: intro once, bed looped — and the auto-standby trap
 
-The siren is two files. `intro_file` plays **exactly once** (a full Jimmy Cliff
-track — fix the mask during it and that's all you hear); `alarm_file` is a
-~10-minute bed of 10 escalating alarms that **loops forever** after the intro.
-Splitting them fixed the old single-file design where the song replayed on every
+The siren is three files played in one sequence. `intro_file` plays **exactly
+once** (a full Jimmy Cliff track — fix the mask during it and that's all you
+hear); `alarm_ramp_file` plays **exactly once** next; then `alarm_file` — a
+~10-minute bed of 10 escalating alarms — **loops forever**. Splitting the intro
+from the bed fixed the old single-file design where the song replayed on every
 loop and the alarms only got ~10 s before the song started over.
+
+### Volume ramps 0→100% twice — and why the bed ramp is its own file
+
+The wake is meant to come up gently and only get assertive if ignored, so the
+audio starts at **0% and ramps to full over 3 minutes — twice**: once over the
+start of the Jimmy Cliff intro, then again over the start of the alarm bed. Both
+ramps are a **linear fade baked into the WAV** at build time (`make-wakeup.sh`,
+`INTRO_FADE_SECS`, default 180 s) — no runtime volume control, so nothing in the
+alarm path can fail to un-mute, and the fade is simply relative to the device's
+output volume. After each 3-minute ramp the file plays at full for its remainder.
+
+The bed ramp is a **separate `alarm_ramp_file`, played once**, rather than a fade
+baked into the looping `alarm_file`. A fade in the looped file would make the bed
+**drop to silence and re-ramp on every loop** (~every 10 min) — a silent trough
+in the middle of an alarm that is supposed to be hammering. So the faded first
+pass is a one-shot before the loop, and the loop itself runs at full with no
+gaps. `sound.py` plays the preludes (`intro_file`, then `alarm_ramp_file`) once
+each, best-effort — a missing or failed prelude falls straight through to the
+full-volume loop, so a prelude can never block the siren. Both ramp files are
+optional; drop either and the sequence just starts louder.
 
 **The trap (hit 2026-10-26):** the intro plays *inside* the ALARMING state, and
 `alarm_auto_standby_s` is timed from when ALARMING began — so the intro counts
@@ -212,7 +233,7 @@ It was not an audio bug — the alarms were simply being cut off.
 
 **Rule:** `alarm_auto_standby_s` must cover `intro length + how long you want the
 bed to ring after it`. Live config now uses **1200 s** (full song + ~10.8 min of
-bed). This coupling is documented at the `alarm_auto_standby_s` line in
+bed, of which the first ~3 min is the bed's volume ramp — see above). This coupling is documented at the `alarm_auto_standby_s` line in
 `config/config.example.toml` so a reinstall can't silently reintroduce it. If you
 shorten or drop the intro, the window just becomes generous (the bed loops).
 

@@ -27,6 +27,14 @@
 #   INTRO_SECS (default full) length of the Jimmy Cliff intro before the alarms.
 #              Default plays the WHOLE ~9-min song (owner's choice). Set a number
 #              (e.g. INTRO_SECS=30) to trim it so the real alarm comes sooner.
+#   INTRO_FADE_SECS (default 180) the Jimmy Cliff intro starts at 0% volume and
+#              ramps UP to full over this many seconds (3 min), then stays at full
+#              for the rest of the song. The alarm bed is NOT faded -- it plays at
+#              full the whole time. A gentle wake that gets assertive if ignored.
+#              The fade is baked into the WAV (no runtime volume control), so it is
+#              relative to whatever the device's output volume is set to. Set 0 to
+#              disable the fade (intro starts at full). If a trimmed INTRO_SECS is
+#              shorter than the fade, the fade just spans the whole trimmed clip.
 set -euo pipefail
 command -v sox >/dev/null || { echo "need sox (+libsox-fmt-mp3)"; exit 1; }
 cd "$(dirname "$0")/.."
@@ -34,21 +42,25 @@ cd "$(dirname "$0")/.."
 R=44100
 SEG_SECS="${SEG_SECS:-60}"                 # seconds per alarm; 10 => ~10 min bed
 INTRO_SECS="${INTRO_SECS:-full}"           # song nudge length; full|0 = whole song (default); or N seconds
+FADE_SECS="${INTRO_FADE_SECS:-180}"        # ramp 0->100% over this many seconds (song AND bed first pass)
 JIMMY="/home/pi/plug-method/jimmy-cliff-american-plan.mp3"
 PULSE="sounds/alarm-pulse.mp3"
 INTRO="sounds/wakeup-intro.wav"
 ALARM="sounds/wakeup-alarm.wav"
+RAMP="sounds/wakeup-alarm-ramp.wav"        # faded-in FIRST PASS of the bed, played once
 for f in "$JIMMY" "$PULSE"; do [ -f "$f" ] || { echo "missing source: $f"; exit 1; }; done
 
 T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 mono(){ sox "$1" -r$R -c1 "$2"; }          # downmix/resample helper
 
+# fade t <N> = linear fade-IN from silence to full over the first N seconds,
+# baked into the file; the remainder plays at full. No fade-out (full branch).
 if [ "$INTRO_SECS" = "full" ] || [ "$INTRO_SECS" = "0" ]; then
-  echo "intro: Jimmy Cliff, full track (played once)"
-  mono "$JIMMY" "$INTRO"
+  echo "intro: Jimmy Cliff, full track, fade-in ${FADE_SECS}s (played once)"
+  sox "$JIMMY" -r$R -c1 "$INTRO" fade t "$FADE_SECS"
 else
-  echo "intro: Jimmy Cliff, first ${INTRO_SECS}s nudge (played once)"
-  sox "$JIMMY" -r$R -c1 "$INTRO" trim 0 "$INTRO_SECS" fade 0 "$INTRO_SECS" 3
+  echo "intro: Jimmy Cliff, first ${INTRO_SECS}s nudge, fade-in ${FADE_SECS}s (played once)"
+  sox "$JIMMY" -r$R -c1 "$INTRO" trim 0 "$INTRO_SECS" fade t "$FADE_SECS" "$INTRO_SECS" 3
 fi
 
 # --- the 10 alarms, escalating ----------------------------------------------
@@ -88,5 +100,12 @@ echo "stitching the bed..."
 sox "$T"/a01.wav "$T"/a02.wav "$T"/a03.wav "$T"/a04.wav "$T"/a05.wav \
     "$T"/a06.wav "$T"/a07.wav "$T"/a08.wav "$T"/a09.wav "$T"/a10.wav "$ALARM"
 
-echo "wrote $INTRO  ($(soxi -D "$INTRO")s, $(du -h "$INTRO" | cut -f1))"
-echo "wrote $ALARM  ($(soxi -D "$ALARM")s, $(du -h "$ALARM" | cut -f1)) -- loops forever"
+# The ramp bed: the SAME bed with a fade-in baked into its first FADE_SECS, so
+# the alarms ramp 0->100% once. Played ONCE (by sound.py) before the looping
+# full-volume $ALARM, so the loop never drops to silence and re-ramps.
+echo "ramp bed: fade-in ${FADE_SECS}s over the first pass (played once)"
+sox "$ALARM" "$RAMP" fade t "$FADE_SECS"
+
+echo "wrote $INTRO  ($(soxi -D "$INTRO")s, $(du -h "$INTRO" | cut -f1)) -- fade-in ${FADE_SECS}s, played once"
+echo "wrote $RAMP  ($(soxi -D "$RAMP")s, $(du -h "$RAMP" | cut -f1)) -- fade-in ${FADE_SECS}s, played once"
+echo "wrote $ALARM  ($(soxi -D "$ALARM")s, $(du -h "$ALARM" | cut -f1)) -- full volume, loops forever"

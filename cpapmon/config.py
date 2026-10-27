@@ -51,6 +51,10 @@ class SoundConfig:
                             # escalating wake bed; this is what hammers until you wake
     intro_file: str = ""    # optional: played ONCE before the loop (the gentle nudge,
                             # e.g. a song). "" -> straight to the looping alarm bed.
+    alarm_ramp_file: str = ""  # optional: a faded-in FIRST PASS of the alarm bed, played
+                            # ONCE after the intro and before the looping bed, so the
+                            # alarms themselves ramp 0->100% once (the loop then runs at
+                            # full with no silence gaps). "" -> straight into the loop.
     chirp_file: str = ""    # snooze-armed confirmation chirp; "" -> sounds/chirp.wav
 
 
@@ -96,6 +100,9 @@ class AppConfig:
         if self.sound.intro_file and not Path(self.sound.intro_file).is_file():
             problems.append(
                 f"[sound] intro_file not found: {self.sound.intro_file}")
+        if self.sound.alarm_ramp_file and not Path(self.sound.alarm_ramp_file).is_file():
+            problems.append(
+                f"[sound] alarm_ramp_file not found: {self.sound.alarm_ramp_file}")
 
         if self.pushover.enabled:
             for key in ("token", "user_key"):
